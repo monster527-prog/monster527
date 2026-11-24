@@ -1,9 +1,12 @@
-AX : LOS DIEZ — AGENT CHAT v0.4.0
+AX : LOS DIEZ — BLACK CHAT v0.4.1
 
 Node.js 22.13 이상(권장 LTS 24)이 필요합니다.
 새 폴더에 압축을 완전히 풀고, 이전 서버를 종료하세요.
 IMPORT-OLD-DATA.cmd로 이전 saved-world-lab을 복사한 뒤 START-WINDOWS.cmd를 실행합니다.
-브라우저에서 http://localhost:33000 을 열고 AGENT CHAT을 선택하세요.
+서버가 준비되면 브라우저를 자동으로 열도록 구성했습니다. 실행 창에 AX server READY가 있는지 확인하세요.
+열리지 않으면 같은 PC에서 http://127.0.0.1:33000/#chat 에 접속하세요. index.html을 직접 열지 마세요.
+연결이 안 되면 CHECK-SERVER-WINDOWS.cmd로 확인하세요.
+아이패드용 웹 접속은 아직 설정되지 않았습니다. 이 패키지는 PC에서 실행합니다.
 AI 연결 설정에서 OpenAI 또는 xAI API Key와 모델 ID를 등록해야 실제 대화가 가능합니다. 웹 구독과 API 요금은 별개입니다.
 자세한 연결·키 보관·문서 선택·PDF 복구 안내는 README.md를 읽어 주세요.
 기존 자료는 삭제하거나 덮어쓰지 마세요.

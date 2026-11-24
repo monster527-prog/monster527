@@ -1,3 +1,4 @@
+import {openLocalBrowser} from './lib/open-browser.mjs';
 import {AIClient} from './lib/ai-client.mjs';
 import {ChatStore,CHAT_AGENTS} from './lib/chat-store.mjs';
 import {pdfDiagnostics} from './lib/pdf-extract.mjs';
@@ -24,9 +25,9 @@ function authorize(req){
  if(req.headers.origin){let host;try{host=new URL(req.headers.origin).host;}catch{throw new StoreError(403,'ORIGIN','허용되지 않은 요청입니다.');}if(![req.headers.host,req.headers['x-forwarded-host']].includes(host))throw new StoreError(403,'ORIGIN','다른 사이트의 저장 요청을 허용하지 않습니다.');}
 }
 async function readJSON(req){let text='';for await(const c of req){text+=c;if(text.length>32768)throw new StoreError(413,'JSON_SIZE','요청이 너무 큽니다.');}try{return JSON.parse(text);}catch{throw new StoreError(400,'JSON','올바른 JSON 요청이 아닙니다.');}}
-const publicFiles=new Set(['index.html','app.js','agent-chat.js','world-lab.js','reference-books.js','style.css','AX-LOS-DIEZ-DEMO.html','AX-LOS-DIEZ-LAB-v2.html','AX-LOS-DIEZ-LAB-v3.html','AX-LOS-DIEZ-바로열기.zip']);
+const publicFiles=new Set(['index.html','app.js','agent-chat.js','world-lab.js','reference-books.js','style.css','black-theme.css','AX-LOS-DIEZ-DEMO.html','AX-LOS-DIEZ-LAB-v2.html','AX-LOS-DIEZ-LAB-v3.html','AX-LOS-DIEZ-바로열기.zip']);
 const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.woff2':'font/woff2','.zip':'application/zip'};
-http.createServer(async(req,res)=>{
+const server=http.createServer(async(req,res)=>{
  try{
   const hostname=new URL('http://'+(req.headers.host||'invalid')).hostname;
   if(!['localhost','127.0.0.1','[::1]'].includes(hostname))throw new StoreError(403,'LOCAL_HOST_ONLY','이 로컬 서버는 localhost 접속만 허용합니다.');
@@ -41,7 +42,7 @@ http.createServer(async(req,res)=>{
    if(conversation&&req.method==='POST')return json(res,200,{turn:await chat.send(conversation[1],conversation[2],await readJSON(req))});
    const saveChat=name.match(/^\/api\/chat\/([^/]+)\/([^/]+)\/([^/]+)\/proposal$/);
    if(saveChat&&req.method==='POST')return json(res,200,await chat.saveProposal(saveChat[1],saveChat[2],saveChat[3]));
-   if(name==='/api/status'&&req.method==='GET')return json(res,200,{mode:'persistent-filesystem',ready:true,csrfToken:token,worlds:WORLD_SPACES,categories:CATEGORIES,maxUploadBytes:MAX_UPLOAD_BYTES});
+   if(name==='/api/status'&&req.method==='GET')return json(res,200,{appVersion:'0.4.1',localOnly:true,mode:'persistent-filesystem',ready:true,csrfToken:token,worlds:WORLD_SPACES,categories:CATEGORIES,maxUploadBytes:MAX_UPLOAD_BYTES});
    if(name==='/api/pdf-diagnostics'&&req.method==='GET')return json(res,200,await pdfDiagnostics());
    if(name==='/api/backup'&&req.method==='GET'){
     const temp=await mkdtemp(path.join(os.tmpdir(),'ax-world-backup-'));
@@ -71,4 +72,12 @@ http.createServer(async(req,res)=>{
   const target=path.resolve(root,relative);if(!target.startsWith(root+path.sep)||!types[path.extname(target)]){res.writeHead(404);res.end('Not found');return;}
   const body=await readFile(target);res.writeHead(200,{'Content-Type':types[path.extname(target)],'Cache-Control':'no-cache','X-Content-Type-Options':'nosniff'});res.end(req.method==='HEAD'?undefined:body);
  }catch(e){if(res.headersSent){res.end();return;}if(e instanceof StoreError)return json(res,e.status,{error:e.code,message:e.message});if(e.code==='ENOENT')return json(res,404,{error:'NOT_FOUND',message:'파일을 찾을 수 없습니다.'});console.error('AX request failed:',e.code||e.name);json(res,500,{error:'STORAGE_ERROR',message:'저장소 처리 중 오류가 발생했습니다. 화면을 새로고침하여 저장 상태를 확인해 주세요.'});}
-}).listen(port,'127.0.0.1',()=>console.log(`AX dashboard with persistent WORLD LAB listening on port ${port}`));
+});
+server.on('error',error=>{
+ console.error(error.code==='EADDRINUSE'?`포트 ${port}가 이미 사용 중입니다. 이전 서버 창에서 Ctrl+C로 종료한 뒤 다시 실행하세요.`:`서버 시작 실패: ${error.code||error.name}`);process.exitCode=1;
+});
+server.listen(port,'127.0.0.1',()=>{
+ console.log(`AX server READY — http://127.0.0.1:${port}/#chat`);
+ console.log('이 창을 닫으면 서버가 종료됩니다. 아이패드용 웹 연결은 아직 설정되지 않았습니다.');
+ if(process.env.AX_OPEN_BROWSER==='1')openLocalBrowser(port);
+});

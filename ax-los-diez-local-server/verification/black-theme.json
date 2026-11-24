@@ -1,0 +1,14 @@
+{
+  "observedAt": "2026-11-24T06:37:23.920Z",
+  "palette": {
+    "body": "rgb(8, 8, 8)",
+    "messages": "rgb(17, 17, 17)",
+    "sidebar": "rgb(14, 14, 14)"
+  },
+  "emptyProductionMode": true,
+  "apiKeyConfigured": false,
+  "realModelCalls": 0,
+  "tabletViewportOnly": true,
+  "actualIPadNetworkAccessConfigured": false,
+  "windowsAutoBrowserVerified": false
+}

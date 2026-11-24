@@ -7,5 +7,6 @@ if ! command -v node >/dev/null 2>&1; then
 fi
 node scripts/check-node.cjs || exit 1
 export PORT=33000
+export AX_OPEN_BROWSER=1
 printf '%s\n' '브라우저에서 http://localhost:33000 을 여세요. 종료: Ctrl+C'
 node server.mjs

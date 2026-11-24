@@ -13,7 +13,9 @@ if errorlevel 1 (
  exit /b 1
 )
 set PORT=33000
-echo Open http://localhost:33000 in your browser.
+set AX_OPEN_BROWSER=1
+echo The browser opens after the server is ready.
+echo If it does not open, visit http://127.0.0.1:33000/#chat
 echo Keep this window open. Press Ctrl+C to stop.
 node server.mjs
 pause
