@@ -1,0 +1,18 @@
+AX : LOS DIEZ 로컬 서버 패키지
+
+이 파일은 클라우드 미리보기를 연결하지 않습니다. 사용자의 PC에서 앱과 저장 서버를 함께 실행하는 대안입니다.
+1. Node.js 20 이상이 없다면 https://nodejs.org 에서 LTS를 설치합니다.
+2. ZIP을 완전히 압축 해제합니다. ZIP 안에서 바로 실행하지 마세요.
+3. Windows: START-WINDOWS.cmd를 엽니다.
+   macOS/Linux: 폴더에서 터미널을 열고 sh START-MAC-LINUX.command 를 실행합니다.
+4. 브라우저에서 http://localhost:33000 을 엽니다. 이 주소는 위 실행 프로그램이 켜진 PC에서만 작동합니다.
+5. WORLD LAB → AHMN → Development → 문서 등록 → data-samples/TEST_ONLY_WORLD_LAB.md 선택 → TEST ONLY 체크 → 등록.
+6. 새로고침 후 같은 문서를 다시 엽니다. 서버를 종료했다가 다시 실행해도 파일이 남습니다.
+
+파일은 압축 해제한 폴더 내부의 saved-world-lab에 보관됩니다. 이 폴더를 삭제하면 자료가 사라집니다. 전체 세계관 백업 ZIP을 별도 장소에도 보관하세요.
+기존 클라우드 데이터나 참고 서적 전문은 포함하지 않았습니다. 새 빈 저장소입니다. 기존 에이전트/이미지 기록은 DEMO입니다.
+Original 후보는 사용자가 명시적으로 승인해야 원본이 되며, 이전 버전은 보존합니다.
+TXT/MD는 Node.js만으로 처리합니다. PDF 본문 추출에는 pdftotext(Poppler)가 추가로 필요합니다. 없으면 PDF 원본은 보존하지만 추출 실패로 표시됩니다. 스캔 PDF의 OCR은 포함하지 않았습니다.
+백업 ZIP 생성에는 Python 3가 필요합니다.
+화면 파일(index.html)을 직접 여는 대신 반드시 서버 실행 후 위 주소로 접속하세요.
+로그인 기능이 없는 개인 PC용입니다. START 프로그램은 이 패키지에서 127.0.0.1에만 연결을 허용합니다.

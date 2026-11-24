@@ -1,0 +1,7 @@
+/saved-world-lab/
+/node_modules/
+.env
+.env.*
+*.pem
+*.key
+*.zip

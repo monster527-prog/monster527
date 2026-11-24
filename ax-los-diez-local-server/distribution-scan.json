@@ -1,0 +1,130 @@
+{
+  "archiveSha256": "08d45f52ff3b592730a408a9f9f0065c043ede8e842c88d5bb4d40ce24120c6d",
+  "archiveIntegrity": "passed",
+  "scannedFiles": 22,
+  "secretPatternRules": [
+    "private_key",
+    "github_token",
+    "openai_key",
+    "aws_access_key",
+    "google_api_key",
+    "slack_token",
+    "credential_url",
+    "literal_secret"
+  ],
+  "findings": [],
+  "excluded": "User documents, reference PDFs/full texts, environment files, authentication files and saved data are not included.",
+  "limitations": "Pattern matching cannot prove absence of every possible secret; the explicit 22-file allowlist was reviewed.",
+  "files": [
+    {
+      "path": "index.html",
+      "bytes": 2748,
+      "sha256": "76dcf1944856b73c75fc02f5ae69f056d745caecffc8a956472ede6f0d8f5384"
+    },
+    {
+      "path": "app.js",
+      "bytes": 44104,
+      "sha256": "03304f58885263f0867af489ff76cf9a9873eaa74605806fb697da967b299345"
+    },
+    {
+      "path": "world-lab.js",
+      "bytes": 13080,
+      "sha256": "dd769c0a35016fa007fe42e6508146a500a2fe4be7a6cffc39812c36ade27003"
+    },
+    {
+      "path": "reference-books.js",
+      "bytes": 39084,
+      "sha256": "30125e16009a7b7f43a1ba847decf328b31425dbeed0ee1e60e929321e785c93"
+    },
+    {
+      "path": "style.css",
+      "bytes": 64621,
+      "sha256": "21329664048f1a040a4b5a33356d1d7d72ffdaffc2c4460746103939699ee4d7"
+    },
+    {
+      "path": "lib/world-store.mjs",
+      "bytes": 9518,
+      "sha256": "052121fdc2a939d6d03ffb7691577a7ce8b699ebfc453f11e74b7c380e190772"
+    },
+    {
+      "path": "scripts/backup-world-lab.py",
+      "bytes": 1192,
+      "sha256": "6eb1ecb001e67820a58a1ea36d829697d65ae5b626485d8145613cfaac038d13"
+    },
+    {
+      "path": "data-samples/TEST_ONLY_WORLD_LAB.md",
+      "bytes": 438,
+      "sha256": "fb557401576d37a51f690f83bc467e78e96696900bee2f5ce1e811a36e2d3aec"
+    },
+    {
+      "path": "assets/mark.svg",
+      "bytes": 226,
+      "sha256": "24c3f841fb413ccf76362164734711eb62d0b50ad5eb935974471daa6dcbd2a0"
+    },
+    {
+      "path": "assets/world-1.svg",
+      "bytes": 19372,
+      "sha256": "6a6d3912af16e9ef569ef6999a7805f21c1bf24e86153f23ede67c758b23e8b0"
+    },
+    {
+      "path": "assets/world-3.svg",
+      "bytes": 19373,
+      "sha256": "08f3b24b89a77d88836324ae56a3a53054bc4151f9222eb201a548a7960c84c6"
+    },
+    {
+      "path": "assets/world-4.svg",
+      "bytes": 2403,
+      "sha256": "3afa61873e4e90370ecae18c1e5abe316f8edc1aa340b4ca7c183216eb2c89c4"
+    },
+    {
+      "path": "assets/world-5.svg",
+      "bytes": 19373,
+      "sha256": "186b261102663463754048de6bf1122ef4ca76651f3c4dab0fb8bc74c843b0ac"
+    },
+    {
+      "path": "assets/world-2.svg",
+      "bytes": 2402,
+      "sha256": "297f1a4a461632280b0cba35dc248e16d73f346c0164ab8b65c9458ea989253d"
+    },
+    {
+      "path": "assets/fonts/Manrope-LICENSE.txt",
+      "bytes": 4383,
+      "sha256": "d826ab6583b12c26807d8716a545bdbbb672df04f48608a364ba9efdbe501c30"
+    },
+    {
+      "path": "assets/fonts/manrope-latin-wght-normal.woff2",
+      "bytes": 24836,
+      "sha256": "a30ddcd349703aff7464c34bef3fffdff405ee50c113440d7c8693c02d210972"
+    },
+    {
+      "path": "assets/fonts/DM-Sans-LICENSE.txt",
+      "bytes": 4502,
+      "sha256": "6fbd040a29c2037a765dfb9f2561e9965b5c95c6dcb5dce516089d63d5f17af7"
+    },
+    {
+      "path": "assets/fonts/dm-sans-latin-wght-normal.woff2",
+      "bytes": 36932,
+      "sha256": "9fea608a947e67020c33cad9a6fe3d60c54119dfb8cff87768a8117a15ed7543"
+    },
+    {
+      "path": "server.mjs",
+      "bytes": 6171,
+      "sha256": "84b1d27d4bd60d93a19ee99fa7389284283545e57c28974eb8d0dd6841c355d8"
+    },
+    {
+      "path": "START-WINDOWS.cmd",
+      "bytes": 304,
+      "sha256": "1cac7b33a850ceb7c277ca3b55008405be5b447e9a8208c17e2e3be48d742232"
+    },
+    {
+      "path": "START-MAC-LINUX.command",
+      "bytes": 334,
+      "sha256": "a147252f3cfa348f45b977f1885dcccf5a8635837f34e9bc1c733d0ffe5ccba7"
+    },
+    {
+      "path": "먼저읽어주세요.txt",
+      "bytes": 1929,
+      "sha256": "f561493152813c179b92580c3843d35d14d6caef8d5d7f8af90b7a231f9d739a"
+    }
+  ]
+}
