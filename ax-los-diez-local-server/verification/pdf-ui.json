@@ -1,0 +1,20 @@
+{
+  "testedAt": "2026-11-24T05:49:07.359Z",
+  "platform": "Linux / Chromium / Node 24",
+  "popplerMissing": true,
+  "diagnostics": true,
+  "legacyReextract": true,
+  "originalBytesUnchanged": true,
+  "legacyTextUnchanged": true,
+  "koreanBodyRendered": true,
+  "refreshPersistence": true,
+  "newUpload": true,
+  "history": true,
+  "viewportWidths": [
+    1440,
+    820,
+    390
+  ],
+  "jsErrors": [],
+  "userWindowsVerified": false
+}

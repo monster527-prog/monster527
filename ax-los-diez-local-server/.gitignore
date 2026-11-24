@@ -5,3 +5,6 @@
 *.pem
 *.key
 *.zip
+
+/pdf-diagnostics.json
+/.importing-*/

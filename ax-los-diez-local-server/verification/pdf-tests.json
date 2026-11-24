@@ -1,0 +1,14 @@
+{
+  "testedAt": "2026-11-24T05:50:40.544962+00:00",
+  "platform": "Linux / Node 24.22.3",
+  "testsPassed": 22,
+  "testsFailed": 0,
+  "popplerUnavailableScenarioVerified": true,
+  "userWindowsTested": false,
+  "userAHMNAndAnyeonsaPDFsAvailable": false,
+  "previousGenericErrorRootCause": "Prior catch hid missing executable, password, damaged file and other failures behind the same message. User machine root cause remains unconfirmed.",
+  "bundledEngine": "PDF.js 6.5.438",
+  "dataImportVerified": true,
+  "originalBytesPreserved": true,
+  "approvedOriginalReextractBlocked": true
+}

@@ -1,3 +1,4 @@
+import {extractPDF} from './pdf-extract.mjs';
 import {mkdir,readFile,readdir,rename,rm,chmod,open,stat} from 'node:fs/promises';
 import path from 'node:path';
 import {randomUUID,createHash} from 'node:crypto';
@@ -35,7 +36,7 @@ export class WorldStore{
   try{const m=JSON.parse(await readFile(path.join(this.dir(world,id),'metadata.json'),'utf8'));if(m.id!==id||m.worldId!==world||!CATEGORIES.includes(m.category)||!['.pdf','.txt','.md'].includes(m.extension))throw new Error('metadata');return m;}
   catch(e){if(e instanceof StoreError)throw e;if(e.code==='ENOENT')throw new StoreError(404,'DOCUMENT_NOT_FOUND','문서를 찾을 수 없습니다.');throw new StoreError(500,'METADATA_INTEGRITY','문서 정보가 손상되어 읽기를 중단했습니다.');}
  }
- async describe(world,id,history){const m=await this.metadata(world,id);history||=await this.approvals(world);const approval=history.find(a=>a.documentId===id);return {...m,status:approval?'approved':m.category==='original'?'pending_approval':'registered',locked:!!approval,approval:approval||null};}
+ async describe(world,id,history){const m=await this.effectiveMetadata(world,id);history||=await this.approvals(world);const approval=history.find(a=>a.documentId===id);return {...m,status:approval?'approved':m.category==='original'?'pending_approval':'registered',locked:!!approval,approval:approval||null};}
  async list(world){
   const dir=path.join(this.world(world),'documents'),history=await this.approvals(world),entries=await readdir(dir,{withFileTypes:true});
   const documents=await Promise.all(entries.filter(e=>e.isDirectory()&&uuid.test(e.name)).map(e=>this.describe(world,e.name,history)));
@@ -57,25 +58,56 @@ export class WorldStore{
    if(extension==='.pdf'){
     const handle=await open(original,'r'),header=Buffer.alloc(8);try{await handle.read(header,0,8,0);}finally{await handle.close();}
     if(!header.toString('ascii').startsWith('%PDF-'))throw new StoreError(422,'INVALID_PDF','PDF 형식이 올바르지 않습니다.');
-    try{await exec('pdftotext',['-enc','UTF-8','-raw',original,textPath],{timeout:60000,maxBuffer:1024*1024});if((await stat(textPath)).size>MAX_TEXT_BYTES)throw new Error('text size');text=await readFile(textPath,'utf8');extraction.method='pdftotext-raw';if(!text.trim())extraction={...extraction,status:'needs_ocr',message:'이미지형 PDF입니다. 원본은 저장했으며 본문을 보려면 OCR 처리가 필요합니다.'};}
-    catch{extraction={status:'failed',method:'pdftotext-raw',message:'원본은 보존했지만 본문을 추출하지 못했습니다. 암호·손상 여부를 확인해 주세요.'};text='';}
-    await rm(textPath,{force:true});
+    ({text,extraction}=await extractPDF(original));
    }else{if(bytes>MAX_TEXT_BYTES)throw new StoreError(413,'TEXT_TOO_LARGE','텍스트 문서는 최대 24MiB까지 등록할 수 있습니다.');({text,encoding}=decode(await readFile(original)));if(!text.trim())extraction={...extraction,status:'empty_text',message:'본문이 비어 있습니다.'};}
    await write(textPath,text);
    const metadata={schema:1,id,worldId:world,category,title:title?.trim()||path.basename(filename,extension),filename,extension,bytes,sha256:hash.digest('hex'),textSha256:digest(Buffer.from(text)),textBytes:Buffer.byteLength(text),encoding,extraction,isTest:!!isTest,createdAt:new Date().toISOString()};
    await write(path.join(stage,'metadata.json'),JSON.stringify(metadata,null,2)+'\n');await rename(stage,target);return await this.describe(world,id);
   }catch(e){await rm(stage,{recursive:true,force:true});throw e;}
  }
+ async extractionHistory(world,id){
+  const m=await this.metadata(world,id),folder=path.join(this.dir(world,id),'extractions');
+  let entries;try{entries=await readdir(folder,{withFileTypes:true});}catch(e){if(e.code==='ENOENT')return [];throw e;}
+  const records=await Promise.all(entries.filter(e=>e.isDirectory()&&uuid.test(e.name)).map(async e=>{
+   const r=JSON.parse(await readFile(path.join(folder,e.name,'extraction.json'),'utf8'));
+   if(r.id!==e.name||r.originalSha256!==m.sha256)throw new StoreError(409,'EXTRACTION_INTEGRITY','추출 이력 무결성을 확인할 수 없습니다.');return r;
+  }));return records.sort((a,b)=>a.createdAt.localeCompare(b.createdAt)||a.id.localeCompare(b.id));
+ }
+ async effectiveMetadata(world,id){
+  const m=await this.metadata(world,id),history=await this.extractionHistory(world,id);
+  const ready=history.filter(r=>r.extraction.status==='ready');
+  const current=ready.at(-1)||(m.extraction.status==='ready'?null:history.at(-1));
+  return {...m,...(current?{extraction:current.extraction,textSha256:current.textSha256,textBytes:current.textBytes,activeExtractionId:current.id}:{}),extractionRevision:history.length,lastExtractionAttempt:history.at(-1)||null};
+ }
+ async reextract(world,id){
+  this.world(world);const previous=this.locks.get(world)||Promise.resolve();
+  const result=previous.catch(()=>{}).then(async()=>{
+   const m=await this.metadata(world,id);
+   if(m.extension!=='.pdf')throw new StoreError(400,'PDF_ONLY','PDF 문서만 다시 추출할 수 있습니다.');
+   if((await this.approvals(world)).some(a=>a.documentId===id))throw new StoreError(409,'APPROVED_IMMUTABLE','승인된 Original의 본문은 고정됩니다. 새 후보를 등록해 주세요.');
+   await this.content(world,id,'original');
+   const result=await extractPDF(path.join(this.dir(world,id),'original.pdf'));
+   const revisionId=randomUUID(),folder=path.join(this.dir(world,id),'extractions');await mkdir(folder,{recursive:true});
+   const stage=path.join(folder,'.staging-'+revisionId),target=path.join(folder,revisionId);await mkdir(stage);
+   try{
+    const record={schema:1,id:revisionId,originalSha256:m.sha256,createdAt:new Date().toISOString(),textSha256:digest(Buffer.from(result.text)),textBytes:Buffer.byteLength(result.text),extraction:result.extraction};
+    await write(path.join(stage,'text.txt'),result.text);await write(path.join(stage,'extraction.json'),JSON.stringify(record,null,2)+'\n');await rename(stage,target);
+   }catch(e){await rm(stage,{recursive:true,force:true});throw e;}
+   // Existing original.pdf, text.txt and metadata.json are never overwritten.
+   return await this.describe(world,id);
+  });this.locks.set(world,result.then(()=>{},()=>{}));return result;
+ }
  async content(world,id,kind='text'){
-  const m=await this.metadata(world,id),file=path.join(this.dir(world,id),kind==='original'?'original'+m.extension:'text.txt'),body=await readFile(file),expected=kind==='original'?m.sha256:m.textSha256;
+  const m=await this.effectiveMetadata(world,id),file=path.join(this.dir(world,id),kind==='original'?'original'+m.extension:m.activeExtractionId?'extractions/'+m.activeExtractionId+'/text.txt':'text.txt'),body=await readFile(file),expected=kind==='original'?m.sha256:m.textSha256;
   if(digest(body)!==expected)throw new StoreError(409,'CONTENT_CHANGED','파일 무결성이 달라져 읽기와 승인을 중단했습니다.');return {metadata:m,body};
  }
  async approve(world,id,input){
   this.world(world);const previous=this.locks.get(world)||Promise.resolve();
   const result=previous.catch(()=>{}).then(async()=>{
-   const m=await this.metadata(world,id);
+   const m=await this.effectiveMetadata(world,id);
    if(m.category!=='original')throw new StoreError(400,'NOT_ORIGINAL','Original 후보만 승인할 수 있습니다.');
    if(input.confirmed!==true||input.sha256!==m.sha256)throw new StoreError(400,'EXPLICIT_APPROVAL','선택한 파일에 대한 명시적인 사용자 확인이 필요합니다.');
+   if(m.activeExtractionId&&input.textSha256!==m.textSha256)throw new StoreError(409,'TEXT_VERSION_CHANGED','추출 본문이 바뀌었습니다. 새로고침 후 본문을 다시 확인해 주세요.');
    if(m.extraction.status!=='ready')throw new StoreError(409,'TEXT_REVIEW_REQUIRED','추출된 본문을 확인할 수 있어야 Original로 승인할 수 있습니다.');
    const history=await this.approvals(world);
    if(history.some(a=>a.documentId===id))throw new StoreError(409,'ALREADY_APPROVED','이미 승인된 문서입니다.');
@@ -83,6 +115,7 @@ export class WorldStore{
    await this.content(world,id,'original');await this.content(world,id,'text');
    const approval={schema:1,id:randomUUID(),documentId:id,sha256:m.sha256,textSha256:m.textSha256,revision:history.length+1,previousApprovalId:history.at(-1)?.id||null,confirmedBy:'user',approvedAt:new Date().toISOString()};
    for(const file of ['original'+m.extension,'text.txt','metadata.json'])await chmod(path.join(this.dir(world,id),file),0o444);
+   if(m.activeExtractionId)for(const file of ['text.txt','extraction.json'])await chmod(path.join(this.dir(world,id),'extractions',m.activeExtractionId,file),0o444);
    const final=path.join(this.world(world),'approvals',approval.id+'.json'),temporary=final+'.tmp';await write(temporary,JSON.stringify(approval,null,2)+'\n');await rename(temporary,final);await chmod(final,0o444);
    return await this.describe(world,id);
   });this.locks.set(world,result.then(()=>{},()=>{}));return result;

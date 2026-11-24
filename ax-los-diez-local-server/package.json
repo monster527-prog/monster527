@@ -1,0 +1,13 @@
+{
+  "name": "ax-los-diez-local-server",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "engines": {"node": ">=22.13.0"},
+  "scripts": {
+    "start": "node scripts/check-node.cjs && node server.mjs",
+    "check": "node --check server.mjs && node --check world-lab.js && node --check lib/world-store.mjs && node --check lib/pdf-extract.mjs && node --check lib/pdf-worker.mjs",
+    "test": "node --test tests/import-data.test.mjs tests/pdf-recovery.test.mjs tests/world-storage.test.mjs",
+    "diagnose:pdf": "node scripts/pdf-diagnostics.mjs"
+  }
+}

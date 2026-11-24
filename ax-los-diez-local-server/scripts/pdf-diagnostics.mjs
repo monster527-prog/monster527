@@ -1,0 +1,11 @@
+import {pdfDiagnostics} from '../lib/pdf-extract.mjs';
+import {writeFile} from 'node:fs/promises';
+const result=await pdfDiagnostics();
+console.log('Node.js:',result.node,'Platform:',result.platform);
+console.log('Built-in PDF.js:',result.bundled.available?'READY':'MISSING');
+console.log('Poppler (optional):',result.poppler.available?'READY':'UNAVAILABLE');
+console.log('pdftotext path/command:',result.poppler.command);
+console.log('Version/error:',result.poppler.version||result.poppler.code+' '+result.poppler.message);
+console.log('OCR: not installed / not provided');
+await writeFile(new URL('../pdf-diagnostics.json',import.meta.url),JSON.stringify(result,null,2));
+console.log('Saved: pdf-diagnostics.json (contains program paths; review before sharing)');

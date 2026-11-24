@@ -1,3 +1,4 @@
+import {pdfDiagnostics} from './lib/pdf-extract.mjs';
 import http from 'node:http';
 import {readFile,mkdtemp,rm} from 'node:fs/promises';
 import path from 'node:path';
@@ -7,7 +8,7 @@ import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {fileURLToPath} from 'node:url';
 import {WorldStore,StoreError,WORLD_SPACES,CATEGORIES,MAX_UPLOAD_BYTES} from './lib/world-store.mjs';
-const root=path.dirname(fileURLToPath(import.meta.url)),port=Number(process.env.PORT||3000);
+const root=path.dirname(fileURLToPath(import.meta.url)),port=Number(process.env.PORT||33000);
 const dataRoot=path.resolve(process.env.AX_WORLD_DATA_DIR||path.join(root,'saved-world-lab'));
 const store=new WorldStore(dataRoot);await store.init();
 const token=randomBytes(32).toString('hex'),exec=promisify(execFile);
@@ -25,6 +26,7 @@ http.createServer(async(req,res)=>{
   if(name.startsWith('/api/')){
    if(req.method==='POST')authorize(req);
    if(name==='/api/status'&&req.method==='GET')return json(res,200,{mode:'persistent-filesystem',ready:true,csrfToken:token,worlds:WORLD_SPACES,categories:CATEGORIES,maxUploadBytes:MAX_UPLOAD_BYTES});
+   if(name==='/api/pdf-diagnostics'&&req.method==='GET')return json(res,200,await pdfDiagnostics());
    if(name==='/api/backup'&&req.method==='GET'){
     const temp=await mkdtemp(path.join(os.tmpdir(),'ax-world-backup-'));
     try{const zip=path.join(temp,'world-lab.zip');await exec('python3',[path.join(root,'scripts','backup-world-lab.py'),'--data-dir',dataRoot,'--output',zip],{timeout:60000});const body=await readFile(zip);res.writeHead(200,{'Content-Type':'application/zip','Content-Disposition':'attachment; filename="AX-WORLD-LAB-backup.zip"','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(body);}finally{await rm(temp,{recursive:true,force:true});}return;
@@ -35,7 +37,9 @@ http.createServer(async(req,res)=>{
     if(Number(req.headers['content-length'])>MAX_UPLOAD_BYTES)throw new StoreError(413,'TOO_LARGE','파일 하나당 최대 64MiB까지 등록할 수 있습니다.');
     const doc=await store.upload(list[1],{filename:url.searchParams.get('filename'),title:url.searchParams.get('title'),category:url.searchParams.get('category'),isTest:url.searchParams.get('isTest')==='true'},req);return json(res,201,{document:doc});
    }
-   const item=name.match(/^\/api\/worlds\/([^/]+)\/documents\/([^/]+)\/(text|original|approve)$/);
+   const item=name.match(/^\/api\/worlds\/([^/]+)\/documents\/([^/]+)\/(text|original|approve|reextract|extractions)$/);
+   if(item&&item[3]==='reextract'&&req.method==='POST')return json(res,200,{document:await store.reextract(item[1],item[2])});
+   if(item&&item[3]==='extractions'&&req.method==='GET')return json(res,200,{history:await store.extractionHistory(item[1],item[2])});
    if(item&&item[3]==='approve'&&req.method==='POST')return json(res,200,{document:await store.approve(item[1],item[2],await readJSON(req))});
    if(item&&['text','original'].includes(item[3])&&req.method==='GET'){
     const data=await store.content(item[1],item[2],item[3]);if(item[3]==='text')return json(res,200,{text:data.body.toString('utf8'),extraction:data.metadata.extraction});
@@ -49,5 +53,5 @@ http.createServer(async(req,res)=>{
   if(!(publicFiles.has(relative)||/^assets\/(?:fonts\/)?[a-zA-Z0-9_.-]+$/.test(relative))){res.writeHead(404);res.end('Not found');return;}
   const target=path.resolve(root,relative);if(!target.startsWith(root+path.sep)||!types[path.extname(target)]){res.writeHead(404);res.end('Not found');return;}
   const body=await readFile(target);res.writeHead(200,{'Content-Type':types[path.extname(target)],'Cache-Control':'no-cache','X-Content-Type-Options':'nosniff'});res.end(req.method==='HEAD'?undefined:body);
- }catch(e){if(res.headersSent){res.end();return;}if(e instanceof StoreError)return json(res,e.status,{error:e.code,message:e.message});if(e.code==='ENOENT')return json(res,404,{error:'NOT_FOUND',message:'파일을 찾을 수 없습니다.'});console.error('AX request failed:',e.code||e.name);json(res,500,{error:'STORAGE_ERROR',message:'저장소 처리 중 오류가 발생했습니다. 기존 파일은 변경하지 않았습니다.'});}
+ }catch(e){if(res.headersSent){res.end();return;}if(e instanceof StoreError)return json(res,e.status,{error:e.code,message:e.message});if(e.code==='ENOENT')return json(res,404,{error:'NOT_FOUND',message:'파일을 찾을 수 없습니다.'});console.error('AX request failed:',e.code||e.name);json(res,500,{error:'STORAGE_ERROR',message:'저장소 처리 중 오류가 발생했습니다. 화면을 새로고침하여 저장 상태를 확인해 주세요.'});}
 }).listen(port,'127.0.0.1',()=>console.log(`AX dashboard with persistent WORLD LAB listening on port ${port}`));
