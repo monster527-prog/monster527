@@ -1,23 +1,26 @@
 {
-  "version": "0.3.0-pdf-recovery",
-  "testedAt": "2026-11-24T05:50:40.543162+00:00",
-  "scannedFiles": 251,
+  "version": "0.4.0-agent-chat",
+  "checkedAt": "2026-11-24T06:08:51.504280+00:00",
   "patterns": [
     "private_key",
     "github_token",
     "openai_key",
+    "xai_key",
     "aws_key",
     "google_key",
     "credential_url"
   ],
   "findings": [],
-  "notes": "No user worlds, PDF uploads, book full texts, environment files or stored data included. Test PDFs are generated at test time; secret is a synthetic PDF password in test code.",
-  "limitations": "Pattern checks and an allowlisted code/data review do not prove absence of every possible secret.",
+  "scannedFiles": 262,
+  "realModelCallsInVerification": 0,
+  "testsUseSyntheticCredentialsAndResponses": true,
+  "excluded": "No private settings, environment files, real keys, saved-world-lab, uploaded worlds, reference book full texts or conversations included.",
+  "limitations": "Pattern checks plus a review of credential persistence paths do not prove absence of every possible secret.",
   "files": [
     {
       "path": ".gitignore",
-      "bytes": 101,
-      "sha256": "56023a546ecd9f98eb56a6d47da653336812202543cbec2e13c138317076f8ff"
+      "bytes": 121,
+      "sha256": "a9dc6d38c774d210105ea987d0859e582d81bf159064584d8330410a565f2127"
     },
     {
       "path": "CHECK-PDF-WINDOWS.cmd",
@@ -31,8 +34,8 @@
     },
     {
       "path": "README.md",
-      "bytes": 7058,
-      "sha256": "4b8056c90d50aef78048f4641bba77a98f398745f0eb3be0062bb8ac514b02d6"
+      "bytes": 14913,
+      "sha256": "8790cb98b1d0d941f3bd6f8fec8c67d866dd180da8f829a0001b83f25b03e085"
     },
     {
       "path": "START-MAC-LINUX.command",
@@ -45,9 +48,14 @@
       "sha256": "e60e8a3f551e5bf4d4d5e240ff99529b9fa46eb7e94e7a9d0b4f83e916d016c1"
     },
     {
+      "path": "agent-chat.js",
+      "bytes": 14531,
+      "sha256": "2950f1575f8df98a82f526307fca3810d63e7e07f242263544af399a7730a646"
+    },
+    {
       "path": "app.js",
-      "bytes": 44104,
-      "sha256": "03304f58885263f0867af489ff76cf9a9873eaa74605806fb697da967b299345"
+      "bytes": 44879,
+      "sha256": "5224192844626a8d6302e816bcd9237053aef99a7235003298323d99c87cabd0"
     },
     {
       "path": "assets/fonts/DM-Sans-LICENSE.txt",
@@ -106,8 +114,18 @@
     },
     {
       "path": "index.html",
-      "bytes": 2748,
-      "sha256": "76dcf1944856b73c75fc02f5ae69f056d745caecffc8a956472ede6f0d8f5384"
+      "bytes": 2788,
+      "sha256": "c50d81bc29207c83ae17907a8cec1e98efc54bb1f44522a197494ab44dde1b2d"
+    },
+    {
+      "path": "lib/ai-client.mjs",
+      "bytes": 5625,
+      "sha256": "231213f380ec8cd1db1b59fff7dc5f9343861943a36cb5ebd1cc45dcb107697f"
+    },
+    {
+      "path": "lib/chat-store.mjs",
+      "bytes": 11970,
+      "sha256": "d9cabe24518c97c8b87407669fdd3e74252acf9acc936e86da3827b2c7a47921"
     },
     {
       "path": "lib/pdf-extract.mjs",
@@ -121,13 +139,13 @@
     },
     {
       "path": "lib/world-store.mjs",
-      "bytes": 12153,
-      "sha256": "9605519df6fdf28eb5831f5cad443d246d6489c7c75cadcb6247280ca104e5da"
+      "bytes": 13355,
+      "sha256": "7c242154677820adb2f6ec6c2a979d8090b9437be6652274a13bf102a40c0c35"
     },
     {
       "path": "package.json",
-      "bytes": 563,
-      "sha256": "de17c8b47be908ea26063f1eb63ccc3db90a7f00b518e93462b9f05750cf4ee8"
+      "bytes": 690,
+      "sha256": "73dc8f450ae9a71afbd97623dab678356957c99c831e83125fd516463993fb90"
     },
     {
       "path": "reference-books.js",
@@ -141,8 +159,8 @@
     },
     {
       "path": "scripts/build-release.py",
-      "bytes": 1018,
-      "sha256": "a5167003e6ade98a9b57866b575571667f7b72c7be7596730556cadf3ad2956f"
+      "bytes": 1518,
+      "sha256": "f31ed6676ae19d11d3f63a00fc1cb044e1b91c7c7e16fb8c21510228b9a9853c"
     },
     {
       "path": "scripts/check-node.cjs",
@@ -161,13 +179,28 @@
     },
     {
       "path": "server.mjs",
-      "bytes": 6631,
-      "sha256": "a4b37cb3879094efda087eead69703224e5771ac7650cd5019c9ba627bdcb272"
+      "bytes": 8379,
+      "sha256": "f4914a7af8bcb049e27906740f57077f8936de9ae21a3b3719d8517e94392c77"
     },
     {
       "path": "style.css",
-      "bytes": 64621,
-      "sha256": "21329664048f1a040a4b5a33356d1d7d72ffdaffc2c4460746103939699ee4d7"
+      "bytes": 69925,
+      "sha256": "e51d4dd30644c53ef3392d235a388ba57467856f86c5c11b4a3798ad9b8cf8f5"
+    },
+    {
+      "path": "tests/chat-ui.mjs",
+      "bytes": 7975,
+      "sha256": "b077846746e8e84967f4e9db2a46dc9b6a33793b7bcdc65f6fd0886876d8d50a"
+    },
+    {
+      "path": "tests/chat.test.mjs",
+      "bytes": 8582,
+      "sha256": "86734497812ac3bb4c463cd849b7cb0cbb754bfd781a08d0cd762b19d8d2858c"
+    },
+    {
+      "path": "tests/fixtures/chat-provider.mjs",
+      "bytes": 983,
+      "sha256": "9d324b8163e9826eee5a5b2bbf5c7972837cf3ba7f6fb26242464add58241369"
     },
     {
       "path": "tests/import-data.test.mjs",
@@ -1250,9 +1283,34 @@
       "sha256": "7bcacc9f22cacf7e9b23866d2a6d1639693d40c7f144e41b7c69ed37ba9cbe8f"
     },
     {
+      "path": "verification/agent-chat-desktop.png",
+      "bytes": 147322,
+      "sha256": "8a984ee24329a51f053c0e53e467afdb88991cac631b4c7309204d6b32b8a5d3"
+    },
+    {
+      "path": "verification/agent-chat-ipad.png",
+      "bytes": 137285,
+      "sha256": "58a6a4fe97ba8433d860d5e562f2c3b90147c8f39beb0a6813867b6ef36924cf"
+    },
+    {
+      "path": "verification/chat-tests.json",
+      "bytes": 481,
+      "sha256": "e68b669917f0312c1b07b42541a679fecdc3ea63ee91070861c47b10a77319d9"
+    },
+    {
+      "path": "verification/chat-ui.json",
+      "bytes": 562,
+      "sha256": "d3d9d6f97d5565d7b4c982361281e111b9f6828bc4c67e66692da12b5a7db094"
+    },
+    {
       "path": "verification/pdf-recovery-ui.png",
       "bytes": 398714,
       "sha256": "8fdd8b7c2c70f779d78f09e0b72f22cf1ec8d01dff032dee3fe1d610a7971561"
+    },
+    {
+      "path": "verification/pdf-tests.json",
+      "bytes": 583,
+      "sha256": "59116190d9b1169353cf38ae7bbba1557324f6b7db9580dd29bf6ea21ab924c4"
     },
     {
       "path": "verification/pdf-ui.json",
@@ -1261,13 +1319,13 @@
     },
     {
       "path": "world-lab.js",
-      "bytes": 17239,
-      "sha256": "8183dbeb63263fe6e1b5c907646120026106f9ed0c33cc596243e224a2dfd6a5"
+      "bytes": 19356,
+      "sha256": "03bee10f6d6d0f87d7abb024dad9ee843387b676fdb7cab78b2b77cf23b73161"
     },
     {
       "path": "먼저읽어주세요.txt",
-      "bytes": 7058,
-      "sha256": "4b8056c90d50aef78048f4641bba77a98f398745f0eb3be0062bb8ac514b02d6"
+      "bytes": 665,
+      "sha256": "1d474d772d998b4b987bec9aa04e2f01169692fd7796d0cfb89cfa8ba5f6b8b5"
     }
   ]
 }

@@ -36,7 +36,14 @@ export class WorldStore{
   try{const m=JSON.parse(await readFile(path.join(this.dir(world,id),'metadata.json'),'utf8'));if(m.id!==id||m.worldId!==world||!CATEGORIES.includes(m.category)||!['.pdf','.txt','.md'].includes(m.extension))throw new Error('metadata');return m;}
   catch(e){if(e instanceof StoreError)throw e;if(e.code==='ENOENT')throw new StoreError(404,'DOCUMENT_NOT_FOUND','문서를 찾을 수 없습니다.');throw new StoreError(500,'METADATA_INTEGRITY','문서 정보가 손상되어 읽기를 중단했습니다.');}
  }
- async describe(world,id,history){const m=await this.effectiveMetadata(world,id);history||=await this.approvals(world);const approval=history.find(a=>a.documentId===id);return {...m,status:approval?'approved':m.category==='original'?'pending_approval':'registered',locked:!!approval,approval:approval||null};}
+ async proposalDecision(world,id){try{return JSON.parse(await readFile(path.join(this.dir(world,id),'proposal-decision.json'),'utf8'));}catch(e){if(e.code==='ENOENT')return null;throw e;}}
+ async decideProposal(world,id,input){
+  const m=await this.metadata(world,id);if(m.category!=='proposals')throw new StoreError(400,'PROPOSAL_ONLY','Proposals 문서만 제안 승인·거절할 수 있습니다.');
+  if(!['approved','rejected'].includes(input.decision)||input.confirmed!==true||typeof input.note!=='string'||input.note.length>3000)throw new StoreError(400,'PROPOSAL_DECISION','판단과 원본 미반영 확인, 3,000자 이내 메모를 확인해 주세요.');
+  const record={id:randomUUID(),decision:input.decision,note:input.note,createdAt:new Date().toISOString(),originalChanged:false};
+  try{await write(path.join(this.dir(world,id),'proposal-decision.json'),JSON.stringify(record,null,2));}catch(e){if(e.code==='EEXIST')throw new StoreError(409,'PROPOSAL_ALREADY_DECIDED','이미 판단한 제안입니다. 이전 판단은 덮어쓰지 않습니다.');throw e;}return await this.describe(world,id);
+ }
+ async describe(world,id,history){const m=await this.effectiveMetadata(world,id);history||=await this.approvals(world);const approval=history.find(a=>a.documentId===id);return {...m,proposalDecision:m.category==='proposals'?await this.proposalDecision(world,id):null,status:approval?'approved':m.category==='original'?'pending_approval':'registered',locked:!!approval,approval:approval||null};}
  async list(world){
   const dir=path.join(this.world(world),'documents'),history=await this.approvals(world),entries=await readdir(dir,{withFileTypes:true});
   const documents=await Promise.all(entries.filter(e=>e.isDirectory()&&uuid.test(e.name)).map(e=>this.describe(world,e.name,history)));

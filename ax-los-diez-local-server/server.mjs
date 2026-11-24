@@ -1,3 +1,5 @@
+import {AIClient} from './lib/ai-client.mjs';
+import {ChatStore,CHAT_AGENTS} from './lib/chat-store.mjs';
 import {pdfDiagnostics} from './lib/pdf-extract.mjs';
 import http from 'node:http';
 import {readFile,mkdtemp,rm} from 'node:fs/promises';
@@ -11,20 +13,34 @@ import {WorldStore,StoreError,WORLD_SPACES,CATEGORIES,MAX_UPLOAD_BYTES} from './
 const root=path.dirname(fileURLToPath(import.meta.url)),port=Number(process.env.PORT||33000);
 const dataRoot=path.resolve(process.env.AX_WORLD_DATA_DIR||path.join(root,'saved-world-lab'));
 const store=new WorldStore(dataRoot);await store.init();
+const privateRoot=path.resolve(process.env.AX_PRIVATE_SETTINGS_DIR||path.join(root,'private-settings'));
+if(privateRoot===dataRoot||privateRoot.startsWith(dataRoot+path.sep))throw new Error('AI key storage must be outside world data and backup folders.');
+const ai=new AIClient(privateRoot);await ai.init();
+const chat=new ChatStore(store,ai);
 const token=randomBytes(32).toString('hex'),exec=promisify(execFile);
 const json=(res,status,value)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(value));};
 function authorize(req){
  const supplied=req.headers['x-ax-csrf'];if(typeof supplied!=='string'||Buffer.byteLength(supplied)!==Buffer.byteLength(token)||!timingSafeEqual(Buffer.from(supplied),Buffer.from(token)))throw new StoreError(403,'WRITE_TOKEN','저장 연결을 새로 확인해 주세요. 페이지를 새로고침한 후 다시 시도하세요.');
  if(req.headers.origin){let host;try{host=new URL(req.headers.origin).host;}catch{throw new StoreError(403,'ORIGIN','허용되지 않은 요청입니다.');}if(![req.headers.host,req.headers['x-forwarded-host']].includes(host))throw new StoreError(403,'ORIGIN','다른 사이트의 저장 요청을 허용하지 않습니다.');}
 }
-async function readJSON(req){let text='';for await(const c of req){text+=c;if(text.length>8192)throw new StoreError(413,'JSON_SIZE','요청이 너무 큽니다.');}try{return JSON.parse(text);}catch{throw new StoreError(400,'JSON','올바른 승인 요청이 아닙니다.');}}
-const publicFiles=new Set(['index.html','app.js','world-lab.js','reference-books.js','style.css','AX-LOS-DIEZ-DEMO.html','AX-LOS-DIEZ-LAB-v2.html','AX-LOS-DIEZ-LAB-v3.html','AX-LOS-DIEZ-바로열기.zip']);
+async function readJSON(req){let text='';for await(const c of req){text+=c;if(text.length>32768)throw new StoreError(413,'JSON_SIZE','요청이 너무 큽니다.');}try{return JSON.parse(text);}catch{throw new StoreError(400,'JSON','올바른 JSON 요청이 아닙니다.');}}
+const publicFiles=new Set(['index.html','app.js','agent-chat.js','world-lab.js','reference-books.js','style.css','AX-LOS-DIEZ-DEMO.html','AX-LOS-DIEZ-LAB-v2.html','AX-LOS-DIEZ-LAB-v3.html','AX-LOS-DIEZ-바로열기.zip']);
 const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.woff2':'font/woff2','.zip':'application/zip'};
 http.createServer(async(req,res)=>{
  try{
+  const hostname=new URL('http://'+(req.headers.host||'invalid')).hostname;
+  if(!['localhost','127.0.0.1','[::1]'].includes(hostname))throw new StoreError(403,'LOCAL_HOST_ONLY','이 로컬 서버는 localhost 접속만 허용합니다.');
   const url=new URL(req.url,'http://localhost'),name=decodeURIComponent(url.pathname);
   if(name.startsWith('/api/')){
    if(req.method==='POST')authorize(req);
+   if(name==='/api/chat/status'&&req.method==='GET')return json(res,200,{...ai.status(),agents:CHAT_AGENTS});
+   if(name==='/api/chat/settings'&&req.method==='POST')return json(res,200,await ai.configure(await readJSON(req)));
+   if(name==='/api/chat/context'&&req.method==='GET')return json(res,200,await chat.context(url.searchParams.get('world')));
+   const conversation=name.match(/^\/api\/chat\/([^/]+)\/([^/]+)$/);
+   if(conversation&&req.method==='GET')return json(res,200,{turns:await chat.history(conversation[1],conversation[2])});
+   if(conversation&&req.method==='POST')return json(res,200,{turn:await chat.send(conversation[1],conversation[2],await readJSON(req))});
+   const saveChat=name.match(/^\/api\/chat\/([^/]+)\/([^/]+)\/([^/]+)\/proposal$/);
+   if(saveChat&&req.method==='POST')return json(res,200,await chat.saveProposal(saveChat[1],saveChat[2],saveChat[3]));
    if(name==='/api/status'&&req.method==='GET')return json(res,200,{mode:'persistent-filesystem',ready:true,csrfToken:token,worlds:WORLD_SPACES,categories:CATEGORIES,maxUploadBytes:MAX_UPLOAD_BYTES});
    if(name==='/api/pdf-diagnostics'&&req.method==='GET')return json(res,200,await pdfDiagnostics());
    if(name==='/api/backup'&&req.method==='GET'){
@@ -37,7 +53,8 @@ http.createServer(async(req,res)=>{
     if(Number(req.headers['content-length'])>MAX_UPLOAD_BYTES)throw new StoreError(413,'TOO_LARGE','파일 하나당 최대 64MiB까지 등록할 수 있습니다.');
     const doc=await store.upload(list[1],{filename:url.searchParams.get('filename'),title:url.searchParams.get('title'),category:url.searchParams.get('category'),isTest:url.searchParams.get('isTest')==='true'},req);return json(res,201,{document:doc});
    }
-   const item=name.match(/^\/api\/worlds\/([^/]+)\/documents\/([^/]+)\/(text|original|approve|reextract|extractions)$/);
+   const item=name.match(/^\/api\/worlds\/([^/]+)\/documents\/([^/]+)\/(text|original|approve|reextract|extractions|decision)$/);
+   if(item&&item[3]==='decision'&&req.method==='POST')return json(res,200,{document:await store.decideProposal(item[1],item[2],await readJSON(req))});
    if(item&&item[3]==='reextract'&&req.method==='POST')return json(res,200,{document:await store.reextract(item[1],item[2])});
    if(item&&item[3]==='extractions'&&req.method==='GET')return json(res,200,{history:await store.extractionHistory(item[1],item[2])});
    if(item&&item[3]==='approve'&&req.method==='POST')return json(res,200,{document:await store.approve(item[1],item[2],await readJSON(req))});

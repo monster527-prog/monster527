@@ -46,6 +46,7 @@ const WorldLab = (()=>{
    ${!info?'<div class="empty" role="status">문서 목록을 읽고 있습니다…</div>':!docs.length?`<div class="empty world-doc-empty"><span>${icon('archive')}</span><h3>아직 ${categories[category]} 문서가 없습니다</h3><p>PDF, TXT, MD 원본 파일과 추출 텍스트를 함께 보관합니다.${category==='original'?'<br>Original 후보는 본문 확인과 사용자 승인 후 원본으로 등록됩니다.':''}</p><button class="button" data-upload-document>첫 문서 등록</button></div>`:`<div class="world-document-layout"><div class="world-document-list" aria-label="등록 문서 목록">${docs.map(d=>`<button class="world-document-row ${d.id===doc.id?'selected':''}" data-document-id="${d.id}" aria-pressed="${d.id===doc.id}"><span>${badge(d)}<small>${d.status==='approved'?'Original v'+d.approval.revision:d.status==='pending_approval'?'승인 대기':'등록 완료'}</small></span><strong>${escapeHTML(d.title)}</strong><small>${escapeHTML(d.filename)} · ${date(d.createdAt)}</small></button>`).join('')}</div><article class="world-document-view"><div class="document-view-header"><div>${badge(doc)}<h3>${escapeHTML(doc.title)}</h3><p>${escapeHTML(doc.filename)} · ${Math.ceil(doc.bytes/1024)} KB · ${date(doc.createdAt)} KST</p></div><a class="button" href="/api/worlds/${key}/documents/${doc.id}/original" download>${icon('download')} 원본 파일</a></div>
    ${doc.status==='approved'?`<div class="notice-inline">${icon('lock')} 승인된 Original v${doc.approval.revision} · 읽기 전용. 변경하려면 새 후보를 등록하고 다시 승인해야 합니다. 이전 원본은 유지됩니다.</div>`:doc.category==='original'?`<div class="original-pending"><p>이 문서는 아직 승인되지 않은 Original 후보입니다.</p><button class="button" data-approve-document="${doc.id}" ${doc.extraction.status!=='ready'?'disabled':''}>본문 확인 후 Original 승인</button></div>`:''}
    ${doc.extraction.status!=='ready'?`<div class="world-storage-error">${escapeHTML(doc.extraction.message||'추출된 본문이 없습니다.')} · 원본 파일은 보존되어 있습니다.</div>`:''}
+   ${doc.category==='proposals'?`<div class="proposal-review-actions">${doc.proposalDecision?`<span>제안 ${doc.proposalDecision.decision==='approved'?'승인':'거절'} · Original 미반영</span><p>${escapeHTML(doc.proposalDecision.note)}</p>`:'<span>미승인 제안 · Original 미반영</span><button class="button" data-proposal-decision="approved">제안 승인</button><button class="button" data-proposal-decision="rejected">거절</button>'}</div>`:''}
    ${doc.extension==='.pdf'?`<div class="document-foot"><span>추출기: ${escapeHTML(doc.extraction.method)} · 재추출 기록 ${doc.extractionRevision||0}회</span><button class="text-button" data-reextract-document="${doc.id}" ${doc.status==='approved'?'disabled title="승인된 Original 본문은 고정됩니다."':''}>텍스트 다시 추출</button><button class="text-button" data-extraction-history="${doc.id}">추출 이력</button></div>`:''}
    <div class="document-text-label"><span class="tiny-label">EXTRACTED TEXT / 읽기 전용</span><span>${doc.encoding}</span></div>
    ${!body||body.loading?'<p class="document-text-placeholder" role="status">저장된 본문을 읽고 있습니다…</p>':body.error?`<div class="world-storage-error" role="alert">${escapeHTML(body.error)}</div>`:`<pre class="document-text">${escapeHTML(body.text.slice(0,200000))||'추출된 텍스트가 없습니다.'}</pre>${body.text.length>200000?'<p class="document-text-placeholder">화면에는 앞부분 20만 글자를 표시합니다. 전체 내용은 텍스트 파일로 내려받을 수 있습니다.</p>':''}<button class="text-button" data-download-text="${doc.id}">${icon('download')} 추출 텍스트 내려받기</button>`}
@@ -103,10 +104,20 @@ const WorldLab = (()=>{
    }catch(e){$('#reextract-error').textContent=e.message;button.disabled=false;button.textContent='다시 추출 시작';}finally{state.busy=false;}
   };
  }
+ function decideProposal(key,category,decision){
+  const doc=chosen(key,category);
+  openDialog(decision==='approved'?'제안을 승인할까요?':'제안을 거절할까요?',`<p class="dialog-lead">제안에 대한 판단만 기록합니다. Original은 자동 변경하지 않습니다. 이전 판단은 덮어쓰지 않습니다.</p><label class="world-form-label" for="proposal-note">판단 메모</label><textarea id="proposal-note" maxlength="3000" rows="4"></textarea><label class="world-checkbox"><input id="proposal-confirm" type="checkbox"> 이 판단은 Original에 자동 반영되지 않음을 확인했습니다.</label><p class="world-form-error" id="proposal-decision-error"></p><div class="dialog-actions"><button class="button dark" id="proposal-decision-save" disabled>판단 기록</button></div>`);
+  $('#proposal-confirm').onchange=e=>$('#proposal-decision-save').disabled=!e.target.checked;
+  $('#proposal-decision-save').onclick=async()=>{const button=$('#proposal-decision-save');button.disabled=true;
+   try{await request(`/api/worlds/${key}/documents/${doc.id}/decision`,{method:'POST',headers:{'Content-Type':'application/json','X-AX-CSRF':state.token},body:JSON.stringify({decision,note:$('#proposal-note').value,confirmed:$('#proposal-confirm').checked})});await refresh(key);$('#detail-dialog').close();toast('제안 판단을 보관했습니다. Original은 변경하지 않았습니다.');}
+   catch(e){$('#proposal-decision-error').textContent=e.message;button.disabled=false;}
+  };
+ }
  function mount(key,category,onChange){
   changed=onChange;connect();
   if(state.connection==='ready'&&!state.worlds[key]&&!state.loading.has(key)&&!state.attempted.has(key))refresh(key);
   if(state.connection==='ready')text(key,chosen(key,category));
+  $$('[data-proposal-decision]').forEach(button=>button.onclick=()=>decideProposal(key,category,button.dataset.proposalDecision));
   $('[data-pdf-diagnostics]')?.addEventListener('click',diagnostics);
   $('[data-reextract-document]')?.addEventListener('click',e=>reextract(key,e.currentTarget.dataset.reextractDocument));
   $('[data-extraction-history]')?.addEventListener('click',e=>extractionHistory(key,e.currentTarget.dataset.extractionHistory));

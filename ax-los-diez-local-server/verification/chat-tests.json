@@ -1,0 +1,13 @@
+{
+  "testedAt": "2026-11-24T06:07:54.155441+00:00",
+  "version": "0.4.0",
+  "testsPassed": 32,
+  "testsFailed": 0,
+  "platform": "Linux / Node 24.22.3 / Chromium",
+  "realModelCalls": 0,
+  "productionAuthenticationAvailable": false,
+  "liveProviderInferenceVerified": false,
+  "contractAndUIInferenceTests": "Isolated test doubles. Production server has fixed provider endpoints and no fallback/demo answer path.",
+  "originalChangedByChat": false,
+  "userWindowsVerified": false
+}
