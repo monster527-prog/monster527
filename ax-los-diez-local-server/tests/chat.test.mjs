@@ -57,6 +57,15 @@ test('Chat persistence, role isolation, credentials, model protocols and proposa
    await assert.rejects(store.decideProposal('ahmn',p.id,{decision:'rejected',note:'덮어쓰기 금지',confirmed:true}),e=>e.code==='PROPOSAL_ALREADY_DECIDED');
    assert.equal((await store.list('ahmn')).originalRevision,1);assert.equal((await store.content('ahmn',original.id,'original')).body.toString(),'Original: 기억은 양도할 수 없다.');
   });
+  await t.test('Agent-specific models and providers remain separate and share keys only by provider',async()=>{
+   const client=new AIClient(path.join(temp,'per-agent'));await client.init();
+   await client.configure({agentId:'marcelo',provider:'openai',model:'gpt-4.1-mini',apiKey:'test-per-agent-openai-key',persistKey:true});
+   await client.configure({agentId:'paul',provider:'xai',model:'grok-4',apiKey:'test-per-agent-xai-key',persistKey:true});
+   assert.equal(client.capture('marcelo').provider,'openai');assert.equal(client.capture('paul').provider,'xai');
+   const reopened=new AIClient(client.folder);await reopened.init();assert.equal(reopened.status('marcelo').model,'gpt-4.1-mini');assert.equal(reopened.status('paul').model,'grok-4');
+   assert(reopened.status('marcelo').configured);assert(reopened.status('paul').configured);assert(!JSON.stringify(reopened.status('paul')).includes('test-per-agent'));
+  });
+  await t.test('Stale selected model is rejected without incurring another model call',async()=>{const before=calls;await assert.rejects(chats.send('ahmn','marcelo',input({expectedModel:'different-model'})),e=>e.code==='AI_SETTINGS_CHANGED');assert.equal(calls,before);});
   await t.test('Model errors persist as errors with no demo response or retry',async()=>{
    const before=calls;globalThis.fetch=async()=>{calls++;return new Response('do-not-leak-secret',{status:401});};
    await assert.rejects(chats.send('ahmn','marcelo',input()),e=>e.code==='AI_HTTP_401');assert.equal(calls,before+1);

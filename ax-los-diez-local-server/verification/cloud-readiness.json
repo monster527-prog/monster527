@@ -1,0 +1,16 @@
+{
+  "checkedAt": "2026-11-24T07:12:52.033242+00:00",
+  "version": "0.5.0",
+  "unitAndIntegrationTestsPassed": 44,
+  "httpsBrowserWithTestDoublesPassed": true,
+  "dockerBuildAndPersistentVolumeTest": true,
+  "userReportedRenderLogin": true,
+  "renderResourcesCreatedByAssistant": false,
+  "renderBlueprintAcceptedByProvider": false,
+  "publicAppURL": null,
+  "liveModelCalls": 0,
+  "actualIPadNetworkVerified": false,
+  "renderDocumentationFetch": "HTTP 403 in this environment; actual provider pricing/config acceptance not verified",
+  "avatarOriginalFilesAvailable": false,
+  "avatarOriginalFilesNeeded": "The 14 inline images were visible to the model but not delivered as workspace files; requested a PNG ZIP."
+}

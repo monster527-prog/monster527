@@ -1,6 +1,6 @@
 {
   "name": "ax-los-diez-local-server",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -8,8 +8,8 @@
   },
   "scripts": {
     "start": "node scripts/check-node.cjs && node server.mjs",
-    "check": "node --check server.mjs && node --check world-lab.js && node --check lib/world-store.mjs && node --check lib/pdf-extract.mjs && node --check lib/pdf-worker.mjs && node --check agent-chat.js && node --check lib/ai-client.mjs && node --check lib/chat-store.mjs && node --check lib/open-browser.mjs && node --check scripts/server-diagnostics.mjs",
-    "test": "node --test tests/import-data.test.mjs tests/pdf-recovery.test.mjs tests/world-storage.test.mjs tests/chat.test.mjs tests/chat-connection.test.mjs",
+    "check": "node --check server.mjs && node --check world-lab.js && node --check lib/world-store.mjs && node --check lib/pdf-extract.mjs && node --check lib/pdf-worker.mjs && node --check agent-chat.js && node --check lib/ai-client.mjs && node --check lib/chat-store.mjs && node --check lib/open-browser.mjs && node --check scripts/server-diagnostics.mjs && node --check lib/access-gate.mjs && node --check lib/backup.mjs && node --check lib/restore.mjs",
+    "test": "node --test tests/import-data.test.mjs tests/pdf-recovery.test.mjs tests/world-storage.test.mjs tests/chat.test.mjs tests/chat-connection.test.mjs tests/cloud.test.mjs tests/restore-validation.test.mjs",
     "diagnose:pdf": "node scripts/pdf-diagnostics.mjs"
   }
 }

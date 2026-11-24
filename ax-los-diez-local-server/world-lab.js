@@ -8,6 +8,7 @@ const WorldLab = (()=>{
  async function request(url,options={}){
   const response=await fetch(url,{cache:'no-store',signal:AbortSignal.timeout(options.method==='POST'?180000:15000),...options});
   let data;try{data=await response.json();}catch{throw new Error('저장 서버에 연결되지 않았습니다. 실행 중인 대시보드에서 열어 주세요.');}
+  if(response.status===401&&data.error==='LOGIN_REQUIRED'){location.assign('/login');throw new Error('다시 로그인해 주세요.');}
   if(!response.ok)throw new Error(data.message||'요청을 처리하지 못했습니다.');return data;
  }
  async function connect(){
@@ -41,7 +42,7 @@ const WorldLab = (()=>{
   if(state.connection!=='ready')return `<section class="document-panel world-storage-message"><span class="subtle-pill">미리보기 · 저장 서버 미연결</span><h2>실제 문서 저장은 실행 중인 대시보드에서 사용할 수 있습니다.</h2><p>현재 HTML 미리보기에서는 업로드를 실행하지 않습니다. 저장 서버가 연결되면 PDF·TXT·MD 문서를 등록하고 다시 열 수 있습니다.</p></section>`;
   const info=state.worlds[key],docs=(info?.documents||[]).filter(d=>d.category===category),doc=chosen(key,category),body=doc&&state.texts.get(doc.id);
   const date=iso=>new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',dateStyle:'medium',timeStyle:'short'}).format(new Date(iso));
-  return `<section class="world-document-panel"><div class="world-document-toolbar"><div><span class="tiny-label">${categories[category].toUpperCase()} / ${docs.length} DOCUMENTS</span><h2>${categories[category]} <small>${category==='original'?'승인된 원본과 승인 대기 후보':category==='development'?'세계관 발전 문서':category==='progress'?'진행 기록':'새로운 제안'}</small></h2></div><div class="world-document-actions"><span class="storage-ready"><i></i>파일 저장 연결됨</span><button class="button" data-pdf-diagnostics>PDF 진단</button><button class="button dark" data-upload-document>${icon('plus')} 문서 등록</button></div></div>
+  return `<section class="world-document-panel"><div class="world-document-toolbar"><div><span class="tiny-label">${categories[category].toUpperCase()} / ${docs.length} DOCUMENTS</span><h2>${categories[category]} <small>${category==='original'?'승인된 원본과 승인 대기 후보':category==='development'?'세계관 발전 문서':category==='progress'?'진행 기록':'새로운 제안'}</small></h2></div><div class="world-document-actions"><span class="storage-ready"><i></i>파일 저장 연결됨</span><button class="button" data-import-backup>백업 ZIP 가져오기</button><button class="button" data-pdf-diagnostics>PDF 진단</button><button class="button dark" data-upload-document>${icon('plus')} 문서 등록</button></div></div>
    ${state.errors[key]?`<div class="world-storage-error" role="alert">${escapeHTML(state.errors[key])} <button class="text-button" data-refresh-world>다시 읽기</button></div>`:''}
    ${!info?'<div class="empty" role="status">문서 목록을 읽고 있습니다…</div>':!docs.length?`<div class="empty world-doc-empty"><span>${icon('archive')}</span><h3>아직 ${categories[category]} 문서가 없습니다</h3><p>PDF, TXT, MD 원본 파일과 추출 텍스트를 함께 보관합니다.${category==='original'?'<br>Original 후보는 본문 확인과 사용자 승인 후 원본으로 등록됩니다.':''}</p><button class="button" data-upload-document>첫 문서 등록</button></div>`:`<div class="world-document-layout"><div class="world-document-list" aria-label="등록 문서 목록">${docs.map(d=>`<button class="world-document-row ${d.id===doc.id?'selected':''}" data-document-id="${d.id}" aria-pressed="${d.id===doc.id}"><span>${badge(d)}<small>${d.status==='approved'?'Original v'+d.approval.revision:d.status==='pending_approval'?'승인 대기':'등록 완료'}</small></span><strong>${escapeHTML(d.title)}</strong><small>${escapeHTML(d.filename)} · ${date(d.createdAt)}</small></button>`).join('')}</div><article class="world-document-view"><div class="document-view-header"><div>${badge(doc)}<h3>${escapeHTML(doc.title)}</h3><p>${escapeHTML(doc.filename)} · ${Math.ceil(doc.bytes/1024)} KB · ${date(doc.createdAt)} KST</p></div><a class="button" href="/api/worlds/${key}/documents/${doc.id}/original" download>${icon('download')} 원본 파일</a></div>
    ${doc.status==='approved'?`<div class="notice-inline">${icon('lock')} 승인된 Original v${doc.approval.revision} · 읽기 전용. 변경하려면 새 후보를 등록하고 다시 승인해야 합니다. 이전 원본은 유지됩니다.</div>`:doc.category==='original'?`<div class="original-pending"><p>이 문서는 아직 승인되지 않은 Original 후보입니다.</p><button class="button" data-approve-document="${doc.id}" ${doc.extraction.status!=='ready'?'disabled':''}>본문 확인 후 Original 승인</button></div>`:''}
@@ -113,10 +114,22 @@ const WorldLab = (()=>{
    catch(e){$('#proposal-decision-error').textContent=e.message;button.disabled=false;}
   };
  }
+ function importBackup(){
+  if(state.busy){toast('진행 중인 작업이 끝난 후 가져오세요.');return;}
+  openDialog('백업 ZIP 가져오기',`<p class="dialog-lead">이 서버의 저장소가 비어 있을 때만 복원합니다. 기존 자료를 덮어쓰지 않습니다. PC에서 받은 전체 세계관 백업 ZIP을 아이패드의 파일 앱에서 선택할 수 있습니다.</p><form id="restore-form"><label class="world-form-label" for="restore-file">AX-WORLD-LAB-backup.zip · 최대 64MiB</label><input id="restore-file" type="file" accept=".zip,application/zip" required><label class="world-checkbox"><input id="restore-confirm" type="checkbox" required> 내 백업에 들어 있는 문서·승인된 Original 이력·대화를 이 빈 저장소에 복원합니다.</label><p class="world-form-help">공급자 API Key와 로그인 비밀번호는 백업에 포함되지 않습니다. 복원 도구는 외부 배포판에 포함되어 있으며 PC에서는 Python 3가 필요합니다.</p><p id="restore-error" class="world-form-error"></p><div class="dialog-actions"><button class="button dark" id="restore-submit">검증 후 가져오기</button></div></form>`);
+  $('#restore-form').onsubmit=async e=>{e.preventDefault();const file=$('#restore-file').files[0],button=$('#restore-submit');if(!file)return;
+   if(file.size>64*1024*1024){$('#restore-error').textContent='ZIP은 64MiB까지 가져올 수 있습니다. 큰 자료는 문서별로 등록하세요.';return;}
+   button.disabled=true;button.textContent='백업과 해시를 검증하고 있습니다…';state.busy=true;
+   try{const result=await request('/api/import-backup',{method:'POST',headers:{'X-AX-CSRF':state.token,'X-AX-CONFIRM-RESTORE':'yes','Content-Type':'application/zip'},body:file});
+    openDialog('백업 가져오기 완료',`<p class="dialog-lead">문서 ${result.documents}개 · 대화 ${result.turns}회 · 파일 ${result.files}개를 가져왔습니다. 파일 해시와 원본 이력을 확인했습니다.</p><button class="button dark" id="restore-reload">새로 읽기</button>`);$('#restore-reload').onclick=()=>location.reload();
+   }catch(error){$('#restore-error').textContent=error.message;button.disabled=false;button.textContent='검증 후 가져오기';}finally{state.busy=false;}
+  };
+ }
  function mount(key,category,onChange){
   changed=onChange;connect();
   if(state.connection==='ready'&&!state.worlds[key]&&!state.loading.has(key)&&!state.attempted.has(key))refresh(key);
   if(state.connection==='ready')text(key,chosen(key,category));
+  $('[data-import-backup]')?.addEventListener('click',importBackup);
   $$('[data-proposal-decision]').forEach(button=>button.onclick=()=>decideProposal(key,category,button.dataset.proposalDecision));
   $('[data-pdf-diagnostics]')?.addEventListener('click',diagnostics);
   $('[data-reextract-document]')?.addEventListener('click',e=>reextract(key,e.currentTarget.dataset.reextractDocument));

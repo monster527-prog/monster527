@@ -4,29 +4,42 @@ import {randomUUID} from 'node:crypto';
 import {StoreError} from './world-store.mjs';
 export const PROVIDERS={openai:{label:'OpenAI',model:'gpt-4.1-mini',endpoint:'https://api.openai.com/v1/responses',env:'OPENAI_API_KEY'},xai:{label:'xAI / Grok',model:'grok-4',endpoint:'https://api.x.ai/v1/chat/completions',env:'XAI_API_KEY'}};
 export class AIClient{
- constructor(folder){this.folder=folder;this.config={provider:'openai',model:PROVIDERS.openai.model};this.keys={};this.keySources={};this.lastCall=null;}
+ constructor(folder){this.folder=folder;this.config={provider:'openai',model:PROVIDERS.openai.model};this.agentConfigs={};this.keys={};this.diskKeys={};this.keySources={};this.lastCalls={};}
+ valid(c){return c&&PROVIDERS[c.provider]&&typeof c.model==='string'&&/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,99}$/.test(c.model);}
+ agent(id){if(id!==undefined&&id!==null&&!['marcelo','paul'].includes(id))throw new StoreError(400,'AI_AGENT','Marcelo 또는 Paul을 선택해 주세요.');return id||undefined;}
+ selected(id){this.agent(id);return this.agentConfigs[id]||this.config;}
  async init(){
   try{
    const c=JSON.parse(await readFile(path.join(this.folder,'ai.json'),'utf8'));
-   if(PROVIDERS[c.provider]&&typeof c.model==='string'){this.config={provider:c.provider,model:c.model};if(typeof c.apiKey==='string'){this.keys[c.provider]=c.apiKey;this.keySources[c.provider]='disk';}}
+   if(c.schema===2){
+    if(this.valid(c.defaults))this.config={provider:c.defaults.provider,model:c.defaults.model};
+    for(const id of ['marcelo','paul'])if(this.valid(c.agents?.[id]))this.agentConfigs[id]={provider:c.agents[id].provider,model:c.agents[id].model};
+    for(const p of Object.keys(PROVIDERS))if(typeof c.providerKeys?.[p]==='string'){this.keys[p]=c.providerKeys[p];this.diskKeys[p]=c.providerKeys[p];this.keySources[p]='disk';}
+   }else if(this.valid(c)){
+    this.config={provider:c.provider,model:c.model};if(typeof c.apiKey==='string'){this.keys[c.provider]=c.apiKey;this.diskKeys[c.provider]=c.apiKey;this.keySources[c.provider]='disk';}
+   }
   }catch(e){if(e.code!=='ENOENT')this.configError=true;}
   if(!this.keys[this.config.provider]&&!process.env[PROVIDERS[this.config.provider].env]&&process.env.XAI_API_KEY)this.config={provider:'xai',model:PROVIDERS.xai.model};
  }
  key(provider=this.config.provider){return this.keys[provider]||process.env[PROVIDERS[provider].env]||'';}
- status(){return {...this.config,providerLabel:PROVIDERS[this.config.provider].label,configured:!!this.key(),keySource:this.keySources[this.config.provider]||(this.key()?'environment':'none'),lastVerifiedCall:this.lastCall,configError:!!this.configError,providers:Object.entries(PROVIDERS).map(([id,p])=>({id,label:p.label,defaultModel:p.model})),note:'키 등록은 인증 성공을 의미하지 않습니다. 실제 메시지 호출 성공 후에만 모델 응답을 표시합니다.'};}
+ status(agentId){
+  const config=this.selected(agentId),key=this.key(config.provider);
+  return {...config,agentId:agentId||null,providerStates:Object.fromEntries(Object.keys(PROVIDERS).map(id=>[id,{configured:!!this.key(id),keySource:this.keySources[id]||(this.key(id)?'environment':'none')}])),agentConfigs:Object.fromEntries(['marcelo','paul'].map(id=>[id,this.selected(id)])),providerLabel:PROVIDERS[config.provider].label,configured:!!key,keySource:this.keySources[config.provider]||(key?'environment':'none'),lastVerifiedCall:this.lastCalls[agentId||'default']||null,configError:!!this.configError,providers:Object.entries(PROVIDERS).map(([id,p])=>({id,label:p.label,defaultModel:p.model})),note:'모델은 에이전트별, 키는 공급자별로 설정합니다. 키 등록은 실제 인증 성공이 아닙니다.'};
+ }
  async configure(input){
-  const {provider,model}=input;const persistKey=input.persistKey===true;
-  if(!PROVIDERS[provider]||typeof model!=='string'||!/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,99}$/.test(model))throw new StoreError(400,'AI_CONFIG','공급자와 모델 ID를 확인해 주세요.');
+  const {provider,model}=input,agentId=this.agent(input.agentId),persistKey=input.persistKey===true;
+  if(!this.valid({provider,model}))throw new StoreError(400,'AI_CONFIG','공급자와 모델 ID를 확인해 주세요.');
   const apiKey=typeof input.apiKey==='string'?input.apiKey.trim():'';
   if(apiKey&&(apiKey.length<16||apiKey.length>512||/[\r\n\x00-\x20]/.test(apiKey)))throw new StoreError(400,'AI_KEY_FORMAT','API Key 형식을 확인해 주세요.');
-  const selectedKey=apiKey||this.key(provider),next={provider,model,...(persistKey&&selectedKey?{apiKey:selectedKey}:{})};
+  const selectedKey=apiKey||this.key(provider),nextConfig=agentId?this.config:{provider,model},nextAgents={...this.agentConfigs,...(agentId?{[agentId]:{provider,model}}:{})},nextKeys={...this.diskKeys};
+  if(persistKey&&selectedKey)nextKeys[provider]=selectedKey;else delete nextKeys[provider];
   await mkdir(this.folder,{recursive:true,mode:0o700});const temp=path.join(this.folder,randomUUID()+'.tmp'),target=path.join(this.folder,'ai.json');
-  await writeFile(temp,JSON.stringify(next,null,2),{flag:'wx',mode:0o600});await rename(temp,target);await chmod(target,0o600);
+  await writeFile(temp,JSON.stringify({schema:2,defaults:nextConfig,agents:nextAgents,providerKeys:nextKeys},null,2),{flag:'wx',mode:0o600});await rename(temp,target);await chmod(target,0o600);
   if(apiKey||persistKey&&selectedKey){this.keys[provider]=selectedKey;this.keySources[provider]=persistKey?'disk':'session';}
   else if(selectedKey&&this.keySources[provider])this.keySources[provider]=persistKey?'disk':'session';
-  this.config={provider,model};this.lastCall=null;this.configError=false;return this.status();
+  this.config=nextConfig;this.agentConfigs=nextAgents;this.diskKeys=nextKeys;this.lastCalls={};this.configError=false;return this.status(agentId);
  }
- capture(){return {...this.config,key:this.key()};}
+ capture(agentId){return {...this.selected(agentId),agentId:agentId||null,key:this.key(this.selected(agentId).provider)};}
  async complete(messages,captured=this.capture()){
   // Capture configuration for this request; changing settings cannot change an in-flight call.
   const {provider,model,key}=captured,p=PROVIDERS[provider];
@@ -44,6 +57,6 @@ export class AIClient{
   const incomplete=provider==='openai'?data.status==='incomplete':data.choices?.[0]?.finish_reason==='length';
   if(typeof text!=='string'||!text.trim()||typeof data.model!=='string'||typeof data.id!=='string')throw new StoreError(502,'AI_EMPTY_RESPONSE','실제 모델 응답의 본문·모델명·응답 ID를 확인하지 못했습니다. 가상 답변으로 대체하지 않습니다.');
   const result={text,provider,requestedModel:model,model:data.model,responseId:data.id,usage:data.usage||null,incomplete,completedAt:new Date().toISOString()};
-  this.lastCall={provider,model:result.model,responseId:result.responseId,at:result.completedAt};return result;
+  this.lastCalls[captured.agentId||'default']={provider,model:result.model,responseId:result.responseId,at:result.completedAt};return result;
  }
 }

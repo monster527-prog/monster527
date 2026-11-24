@@ -1,0 +1,15 @@
+{
+  "testedAt": "2026-11-24T07:09:42.712Z",
+  "httpsReverseProxyTest": true,
+  "testCertificateOnly": true,
+  "tabletEmulation": true,
+  "actualSafariOrIPadVerified": false,
+  "loginLogout": true,
+  "emptyBackupImport": true,
+  "agentSpecificModels": true,
+  "realModelCalls": 0,
+  "testDoubleCalls": 2,
+  "actualRenderDeployment": false,
+  "publicURL": null,
+  "jsErrors": []
+}

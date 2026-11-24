@@ -4,7 +4,7 @@ p=argparse.ArgumentParser();p.add_argument('--output',required=True);a=p.parse_a
 root=Path(__file__).resolve().parent.parent;out=Path(a.output).resolve()
 if root==out or root in out.parents:raise SystemExit('Choose output outside application folder')
 allowed_dirs={'assets','lib','scripts','tests','verification','vendor','data-samples'}
-allowed_roots={'.gitignore','README.md','먼저읽어주세요.txt','START-WINDOWS.cmd','START-MAC-LINUX.command','CHECK-SERVER-WINDOWS.cmd','CHECK-PDF-WINDOWS.cmd','IMPORT-OLD-DATA.cmd','package.json','index.html','style.css','black-theme.css','app.js','world-lab.js','agent-chat.js','reference-books.js','server.mjs','distribution-scan.json'}
+allowed_roots={'Dockerfile','.dockerignore','CLOUD-SETUP.md','.gitignore','README.md','먼저읽어주세요.txt','START-WINDOWS.cmd','START-MAC-LINUX.command','CHECK-SERVER-WINDOWS.cmd','CHECK-PDF-WINDOWS.cmd','IMPORT-OLD-DATA.cmd','package.json','index.html','style.css','black-theme.css','app.js','world-lab.js','agent-chat.js','reference-books.js','server.mjs','distribution-scan.json'}
 exclude={'saved-world-lab','private-settings','node_modules','.git','__pycache__'}
 files=[f for f in root.rglob('*') if f.is_file() and (f.relative_to(root).parts[0] in allowed_dirs or str(f.relative_to(root)) in allowed_roots) and not any(x in exclude or x.startswith('.importing-') or x.startswith('.env') for x in f.relative_to(root).parts) and f.name not in {'pdf-diagnostics.json','server-diagnostics.json'} and f.suffix not in {'.zip','.pem','.key'}]
 out.parent.mkdir(parents=True,exist_ok=True)

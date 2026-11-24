@@ -1,0 +1,12 @@
+{
+  "dockerImage": "ax-los-diez:ipad-cloud",
+  "memoryLimitMiB": 512,
+  "buildVerified": true,
+  "passwordGate": true,
+  "bundledPDFExtraction": true,
+  "newContainerSameVolumeDataSurvived": true,
+  "backupDownload": true,
+  "realModelCalls": 0,
+  "actualRenderDeployment": false,
+  "userIPadVerified": false
+}

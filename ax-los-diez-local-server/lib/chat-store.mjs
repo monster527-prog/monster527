@@ -28,7 +28,9 @@ export class ChatStore{
  }
  async send(world,agent,input){
   const dir=this.dir(world,agent),lock=world+':'+agent;
-  if(!this.ai.status().configured)throw new StoreError(428,'AI_AUTH_REQUIRED','AI 연결 설정에서 공급자·모델·API Key를 등록하세요. 실제 API 인증이 없으면 실행하지 않습니다.');
+  if(!this.ai.status(agent).configured)throw new StoreError(428,'AI_AUTH_REQUIRED','AI 연결 설정에서 공급자·모델·API Key를 등록하세요. 실제 API 인증이 없으면 실행하지 않습니다.');
+  const captured=this.ai.capture(agent);
+  if(input.expectedProvider&&input.expectedProvider!==captured.provider||input.expectedModel&&input.expectedModel!==captured.model)throw new StoreError(409,'AI_SETTINGS_CHANGED','에이전트 모델 설정이 바뀌었습니다. 다시 읽기 후 전송하세요. 모델은 호출하지 않았습니다.');
   if(input.consent!==true)throw new StoreError(400,'AI_CONSENT','선택 문서와 대화의 모델 공급자 전송에 동의해 주세요. API 요금이 발생할 수 있습니다.');
   if(!uuid.test(input.requestId||'')||typeof input.message!=='string'||!input.message.trim()||input.message.length>8000)throw new StoreError(400,'CHAT_MESSAGE','메시지는 1~8,000자, 요청 ID는 올바른 형식이어야 합니다.');
   if(!Array.isArray(input.documentIds)||input.documentIds.length>100||input.documentIds.some(id=>!uuid.test(id)))throw new StoreError(400,'CHAT_SOURCES','참고 문서 선택을 확인해 주세요.');
@@ -55,7 +57,7 @@ export class ChatStore{
     if(!target)throw new StoreError(404,'REVIEW_TARGET','이 세계관에서 완료된 Marcelo 응답을 찾을 수 없습니다.');
     review={turnId:target.id,agentId:'marcelo',model:target.assistant.model,text:target.assistant.text,sources:target.sources};
    }
-   const captured=this.ai.capture(),createdAt=new Date().toISOString(),id=input.requestId,folder=path.join(dir,id);await mkdir(dir,{recursive:true,mode:0o700});
+   const createdAt=new Date().toISOString(),id=input.requestId,folder=path.join(dir,id);await mkdir(dir,{recursive:true,mode:0o700});
    try{await mkdir(folder,{mode:0o700});}catch(e){if(e.code==='EEXIST')throw new StoreError(409,'CHAT_DUPLICATE','이미 기록된 전송 요청입니다. 대화를 새로 읽어 확인하세요. 자동 재호출하지 않았습니다.');throw e;}
    const request={schema:1,id,worldId:world,agentId:agent,user:input.message.trim(),createdAt,service:{provider:captured.provider,requestedModel:captured.model},sources:snapshots.map(({text,...d})=>d),historyTurnIds:recent.map(t=>t.id),hasApprovedOriginal:available.hasApprovedOriginal,originalProvided,review};
    await writeFile(path.join(folder,'context.json'),JSON.stringify(snapshots),{flag:'wx',mode:0o600});

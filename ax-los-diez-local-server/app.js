@@ -244,3 +244,11 @@ $('#search-open').onclick=openSearch;$('#notifications').onclick=showPending;
 document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();openSearch();}});
 window.addEventListener('hashchange',()=>{const next=location.hash.slice(1);if(navItems.some(x=>x[0]===next)&&page!==next){page=next;render();}});
 render();
+
+if(['http:','https:'].includes(location.protocol))fetch('/api/access/status',{cache:'no-store'}).then(r=>r.ok?r.json():null).then(status=>{
+ if(!status?.enabled)return;document.body.dataset.remote='true';
+ if(!status.authenticated){location.replace('/login');return;}
+ const button=$('#access-logout');button.hidden=false;button.onclick=async()=>{try{const status=await(await fetch('/api/status',{cache:'no-store'})).json();const response=await fetch('/api/access/logout',{method:'POST',headers:{'X-AX-CSRF':status.csrfToken}});if(response.ok){$('#main').textContent='';$('#dialog-content').textContent='';location.replace('/login');}else toast('로그아웃을 완료하지 못했습니다. 다시 시도해 주세요.');}catch{toast('서버 연결을 확인해 주세요.');}};
+}).catch(()=>{});
+
+window.addEventListener('pageshow',event=>{if(!event.persisted||document.body.dataset.remote!=='true')return;document.body.style.visibility='hidden';fetch('/api/access/status',{cache:'no-store'}).then(r=>r.json()).then(status=>{if(status.authenticated)document.body.style.visibility='';else location.replace('/login');}).catch(()=>location.replace('/login'));});

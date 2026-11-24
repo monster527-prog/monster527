@@ -1,0 +1,13 @@
+.git
+.env
+.env.*
+private-settings
+saved-world-lab
+node_modules
+*.zip
+*.pem
+*.key
+verification
+tests
+pdf-diagnostics.json
+server-diagnostics.json

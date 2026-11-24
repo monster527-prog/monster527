@@ -18,6 +18,6 @@ test('Network failure is localized and does not pretend API authentication was c
  const html=await page('http:',async()=>{throw new TypeError('Failed to fetch');});assert.match(html,/로컬 서버 응답을 받지 못했습니다/);assert(!html.includes('Failed to fetch'));assert.match(html,/CHECK-SERVER-WINDOWS.cmd/);
 });
 test('Older server with no chat endpoint is identified separately from missing credentials',async()=>{
- const html=await page('http:',async url=>url==='/api/chat/status'?Response.json({message:'not found'},{status:404}):Response.json({csrfToken:'test'}));
+ const html=await page('http:',async url=>url.startsWith('/api/chat/status')?Response.json({message:'not found'},{status:404}):Response.json({csrfToken:'test'}));
  assert.match(html,/이 서버에는 채팅 API가 없습니다/);assert.match(html,/이전 서버를 종료/);
 });

@@ -1,0 +1,27 @@
+# Paid persistent storage. Review the provider's current price before creating.
+# No account, password, API key, deployment or billing is created by this file.
+services:
+  - type: web
+    name: ax-los-diez
+    runtime: docker
+    plan: starter
+    region: singapore
+    dockerfilePath: ./ax-los-diez-local-server/Dockerfile
+    dockerContext: ./ax-los-diez-local-server
+    healthCheckPath: /healthz
+    autoDeploy: false
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: AX_REMOTE
+        value: "1"
+      - key: AX_ACCESS_PASSWORD
+        sync: false
+      - key: AX_WORLD_DATA_DIR
+        value: /var/data/ax/world-lab
+      - key: AX_PRIVATE_SETTINGS_DIR
+        value: /var/data/ax/private
+    disk:
+      name: ax-data
+      mountPath: /var/data/ax
+      sizeGB: 1

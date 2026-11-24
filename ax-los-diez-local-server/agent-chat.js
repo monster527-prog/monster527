@@ -8,21 +8,23 @@ const AgentChat=(()=>{
   let r;
   try{r=await fetch(url,{cache:'no-store',signal:AbortSignal.timeout(110000),...options});}
   catch(e){throw new Error(e.name==='TimeoutError'?'서버 응답 시간이 초과되었습니다. 작업이 끝났을 수 있으니 기록을 다시 읽어 확인하세요. 자동 재전송하지 않았습니다.':'로컬 서버 응답을 받지 못했습니다. START-WINDOWS.cmd 실행 창을 확인하고 서버가 준비된 뒤 다시 연결하세요.');}
-  if(r.status===404&&url==='/api/chat/status')throw new Error('이 서버에는 채팅 API가 없습니다. 이전 서버를 종료하고 새 채팅 버전 폴더의 START-WINDOWS.cmd를 실행하세요.');
+  if(r.status===404&&url.startsWith('/api/chat/status'))throw new Error('이 서버에는 채팅 API가 없습니다. 이전 서버를 종료하고 새 채팅 버전 폴더의 START-WINDOWS.cmd를 실행하세요.');
   let data;try{data=await r.json();}catch{throw new Error('대시보드 서버의 JSON 응답이 아닙니다. HTML 미리보기 대신 START-WINDOWS.cmd로 연 화면을 사용하세요.');}
+  if(r.status===401&&data.error==='LOGIN_REQUIRED'){location.assign('/login');throw new Error('로그인이 만료되었습니다. 다시 로그인해 주세요.');}
   if(!r.ok)throw new Error(data.message||'채팅 요청을 처리하지 못했습니다.');return data;
  }
  const post=(url,data)=>api(url,{method:'POST',headers:{'Content-Type':'application/json','X-AX-CSRF':S.token},body:JSON.stringify(data)});
  async function connect(){
-  if(S.connection!=='idle')return;S.connection='loading';
-  try{const [connection,status]=await Promise.all([api('/api/status'),api('/api/chat/status')]);S.token=connection.csrfToken;S.status=status;S.connection='ready';}
-  catch(e){S.connection='failed';S.error=e.message;}redraw();
+  if(S.connection!=='idle')return;S.connection='loading';const agent=S.agent;
+  try{const [connection,status]=await Promise.all([api('/api/status'),api('/api/chat/status?agent='+agent)]);S.token=connection.csrfToken;S.status=agent===S.agent?status:null;S.connection='ready';}
+  catch(e){S.connection='failed';S.status=null;S.token=null;S.error=e.message;}redraw();
  }
  async function load(force=false){
   const world=S.world,agent=S.agent,k=world+':'+agent;
   if(S.loading.has(k)||(!force&&S.loaded.has(k)))return;S.loading.add(k);S.loaded.add(k);
   try{
-   const [history,context]=await Promise.all([api(`/api/chat/${world}/${agent}`),api('/api/chat/context?world='+world)]);
+   const [history,context,status]=await Promise.all([api(`/api/chat/${world}/${agent}`),api('/api/chat/context?world='+world),api('/api/chat/status?agent='+agent)]);
+   if(S.world===world&&S.agent===agent)S.status=status;
    S.histories[k]=history.turns;S.contexts[world]=context;
    if(!S.selected[world])S.selected[world]=context.documents.filter(d=>d.eligible).map(d=>d.id);
    delete S.errors[k];
@@ -47,19 +49,19 @@ const AgentChat=(()=>{
  }
  function settings(){
   if(!S.status){toast('저장 서버 연결을 먼저 확인해 주세요.');return;}
-  openDialog('AI 연결 설정',`<p class="dialog-lead">키는 로컬 서버에서 사용하며 브라우저 저장소·대화 기록·GitHub에 넣지 않습니다. 키 등록만으로 인증 성공이라고 표시하지 않습니다.</p><form id="chat-settings-form"><label class="world-form-label" for="chat-provider">모델 공급자</label><select id="chat-provider">${S.status.providers.map(p=>`<option value="${p.id}" ${p.id===S.status.provider?'selected':''}>${p.label}</option>`).join('')}</select><label class="world-form-label" for="chat-model">모델 ID</label><input id="chat-model" value="${escapeHTML(S.status.model)}" required maxlength="100"><p class="world-form-help">예시 모델은 계정에서 사용 가능해야 합니다. OpenAI: gpt-4.1-mini / xAI: grok-4. 사용 가능한 모델 ID를 직접 입력할 수 있습니다.</p><label class="world-form-label" for="chat-api-key">API Key · 기존 키를 유지하려면 비워 두세요</label><input id="chat-api-key" type="password" autocomplete="off" spellcheck="false" maxlength="512" placeholder="선택한 공급자의 API Key"><label class="world-checkbox"><input id="chat-persist-key" type="checkbox" ${S.status.keySource==='disk'?'checked':''}> 이 PC에 키 보관 · private-settings/ai.json에 저장합니다.</label><p class="world-form-help">체크하지 않으면 새 키는 서버 실행 중에만 사용합니다. 저장된 키도 체크 해제 후 저장하면 디스크에서 제거됩니다. PC 계정 권한을 가진 사람은 보관 파일을 읽을 수 있습니다.</p><p>현재 상태: ${S.status.configured?'키 있음 · 실제 호출 인증은 별도':'키 없음'}</p><p class="world-form-error" id="chat-settings-error"></p><div class="dialog-actions"><button class="button dark" id="chat-settings-save">설정 저장</button></div></form>`);
-  $('#chat-provider').onchange=e=>{$('#chat-model').value=S.status.providers.find(p=>p.id===e.target.value).defaultModel;$('#chat-api-key').value='';};
+  const settingAgent=S.agent;openDialog((S.agent==='marcelo'?'Marcelo Brown':'Paul Rudolph')+' · AI 연결 설정',`<p class="dialog-lead">모델은 현재 에이전트에만 적용하고, 같은 공급자의 키는 두 에이전트가 공유합니다. 키는 서버에서 사용하며 브라우저 저장소·대화 기록·GitHub에 넣지 않습니다. 키 등록만으로 인증 성공이라고 표시하지 않습니다.</p><form id="chat-settings-form"><label class="world-form-label" for="chat-provider">모델 공급자</label><select id="chat-provider">${S.status.providers.map(p=>`<option value="${p.id}" ${p.id===S.status.provider?'selected':''}>${p.label}</option>`).join('')}</select><label class="world-form-label" for="chat-model">모델 ID</label><input id="chat-model" value="${escapeHTML(S.status.model)}" required maxlength="100"><p class="world-form-help">예시 모델은 계정에서 사용 가능해야 합니다. OpenAI: gpt-4.1-mini / xAI: grok-4. 사용 가능한 모델 ID를 직접 입력할 수 있습니다.</p><label class="world-form-label" for="chat-api-key">API Key · 기존 키를 유지하려면 비워 두세요</label><input id="chat-api-key" type="password" autocomplete="off" spellcheck="false" maxlength="512" placeholder="선택한 공급자의 API Key"><label class="world-checkbox"><input id="chat-persist-key" type="checkbox" ${S.status.keySource==='disk'?'checked':''}> 이 서버에 키 보관 · 개인 설정 파일에 저장합니다.</label><p class="world-form-help">체크하지 않으면 새 키는 서버 실행 중에만 사용합니다. 저장된 키도 체크 해제 후 저장하면 디스크에서 제거됩니다. 로컬 모드에서는 PC, 외부 배포에서는 호스팅 서버에 저장합니다. 서버 관리자 권한을 가진 사람은 파일을 읽을 수 있습니다.</p><p>현재 상태: ${S.status.configured?'키 있음 · 실제 호출 인증은 별도':'키 없음'}</p><p class="world-form-error" id="chat-settings-error"></p><div class="dialog-actions"><button class="button dark" id="chat-settings-save">설정 저장</button></div></form>`);
+  $('#chat-provider').onchange=e=>{$('#chat-model').value=S.status.providers.find(p=>p.id===e.target.value).defaultModel;$('#chat-api-key').value='';$('#chat-persist-key').checked=S.status.providerStates?.[e.target.value]?.keySource==='disk';};
   $('#chat-settings-form').onsubmit=async e=>{e.preventDefault();const button=$('#chat-settings-save');button.disabled=true;
-   try{S.status=await post('/api/chat/settings',{provider:$('#chat-provider').value,model:$('#chat-model').value,apiKey:$('#chat-api-key').value,persistKey:$('#chat-persist-key').checked});$('#chat-api-key').value='';S.consent=false;$('#detail-dialog').close();redraw();toast('설정을 저장했습니다. 인증은 실제 메시지 전송 시 확인됩니다.');}
+   try{S.status=await post('/api/chat/settings',{agentId:settingAgent,provider:$('#chat-provider').value,model:$('#chat-model').value,apiKey:$('#chat-api-key').value,persistKey:$('#chat-persist-key').checked});$('#chat-api-key').value='';S.consent=false;$('#detail-dialog').close();redraw();toast('설정을 저장했습니다. 인증은 실제 메시지 전송 시 확인됩니다.');}
    catch(error){$('#chat-settings-error').textContent=error.message;button.disabled=false;}
   };
  }
  async function send(e){
-  e.preventDefault();if(S.busy||!S.consent||!S.status?.configured)return;
+  e.preventDefault();if(S.connection!=='ready'||S.busy||!S.consent||!S.status?.configured)return;
   const world=S.world,agent=S.agent,k=key(),message=$('#chat-message').value;if(!message.trim())return;
   S.drafts[k]=message;S.busy=true;delete S.errors[k];redraw();
   try{
-   await post(`/api/chat/${world}/${agent}`,{requestId:crypto.randomUUID(),message,documentIds:S.selected[world]||[],reviewTurnId:S.reviews[k]?.id,consent:S.consent});
+   await post(`/api/chat/${world}/${agent}`,{requestId:typeof crypto.randomUUID==='function'?crypto.randomUUID():uuidFallback(),message,documentIds:S.selected[world]||[],reviewTurnId:S.reviews[k]?.id,consent:S.consent,expectedProvider:S.status.provider,expectedModel:S.status.model});
    S.drafts[k]='';delete S.reviews[k];
   }catch(error){S.errors[k]=error.message;}
   finally{S.busy=false;try{S.histories[k]=(await api(`/api/chat/${world}/${agent}`)).turns;}catch{}redraw();if(key()===k)$('.chat-messages')?.scrollTo({top:$('.chat-messages').scrollHeight,behavior:'smooth'});}
@@ -68,7 +70,7 @@ const AgentChat=(()=>{
   changed=onChange;connect();if(S.connection==='ready')load();
   $('[data-chat-settings]')?.addEventListener('click',settings);
   $('[data-chat-reconnect]')?.addEventListener('click',()=>{S.connection='idle';connect();});
-  $$('[data-chat-agent]').forEach(b=>b.onclick=()=>{S.agent=b.dataset.chatAgent;redraw();});
+  $$('[data-chat-agent]').forEach(b=>b.onclick=()=>{S.agent=b.dataset.chatAgent;S.status=null;S.loaded.delete(key());redraw();});
   $('#chat-world')?.addEventListener('change',e=>{S.world=e.target.value;S.consent=false;redraw();});
   $('[data-chat-refresh]')?.addEventListener('click',()=>load(true));
   $$('[data-chat-doc]').forEach(input=>input.onchange=()=>{S.selected[S.world]=$$('[data-chat-doc]:checked').map(e=>e.dataset.chatDoc);S.consent=false;$('#chat-consent').checked=false;$('#chat-send').disabled=true;});
@@ -76,11 +78,12 @@ const AgentChat=(()=>{
   $('#chat-consent')?.addEventListener('change',e=>{S.consent=e.target.checked;$('#chat-send').disabled=S.busy||!S.status?.configured||!S.consent;});
   $('#chat-form')?.addEventListener('submit',send);
   $('[data-chat-clear-review]')?.addEventListener('click',()=>{delete S.reviews[key()];redraw();});
-  $$('[data-chat-review]').forEach(b=>b.onclick=()=>{const turn=(S.histories[key()]||[]).find(t=>t.id===b.dataset.chatReview);S.agent='paul';S.reviews[key()]={id:turn.id};S.drafts[key()]='선택한 Marcelo의 답변을 Original과 비교해 독립 평가하고, 모순·근거 부족·수정 방향을 알려줘.';redraw();});
+  $$('[data-chat-review]').forEach(b=>b.onclick=()=>{const turn=(S.histories[key()]||[]).find(t=>t.id===b.dataset.chatReview);S.agent='paul';S.status=null;S.loaded.delete(key());S.reviews[key()]={id:turn.id};S.drafts[key()]='선택한 Marcelo의 답변을 Original과 비교해 독립 평가하고, 모순·근거 부족·수정 방향을 알려줘.';redraw();});
   $$('[data-chat-save]').forEach(b=>b.onclick=async()=>{const world=S.world,agent=S.agent,k=key();b.disabled=true;try{await post(`/api/chat/${world}/${agent}/${b.dataset.chatSave}/proposal`,{});S.histories[k]=(await api(`/api/chat/${world}/${agent}`)).turns;invalidateWorld(world);redraw();toast('실제 응답과 모델·출처 기록을 Proposals에 보관했습니다.');}catch(e){toast(e.message);b.disabled=false;}});
   $$('[data-chat-open-proposal]').forEach(b=>b.onclick=()=>{selectedWorld=WorldLab.worldKeys.indexOf(S.world);worldTab='proposals';invalidateWorld(S.world);navigate('worlds');});
  }
+ function uuidFallback(){const b=crypto.getRandomValues(new Uint8Array(16));b[6]=(b[6]&15)|64;b[8]=(b[8]&63)|128;const h=Array.from(b,x=>x.toString(16).padStart(2,'0')).join('');return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);}
  function invalidateWorld(world){delete WorldLab.state.worlds[world];WorldLab.state.attempted.delete(world);}
- function choose(agent,world){if(agent)S.agent=agent;if(world)S.world=world;}
+ function choose(agent,world){if(agent)S.agent=agent;if(world)S.world=world;S.status=null;S.loaded.delete(key());}
  return {renderPage,mount,choose};
 })();
